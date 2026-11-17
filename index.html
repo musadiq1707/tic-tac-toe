@@ -1,0 +1,4227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#eef2fb" id="metaTheme" />
+<meta name="description" content="A polished Tic Tac Toe game with a bot opponent, two-player mode, scores, themes, sound and confetti." />
+<title>Tic Tac Toe</title>
+
+<!-- Set the theme before first paint to avoid a flash of the wrong palette. -->
+<script>
+  (function () {
+    var theme = 'light';
+    try {
+      var saved = JSON.parse(localStorage.getItem('ttt.prefs.v1') || 'null');
+      if (saved && (saved.theme === 'light' || saved.theme === 'dark')) {
+        theme = saved.theme;
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        theme = 'dark';
+      }
+    } catch (error) {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   1. Design tokens — every colour used by the UI lives here.
+   ============================================================ */
+:root {
+  --font: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --bg: #eef2fb;
+  --text: #101828;
+  --muted: #667085;
+
+  --x: #4f46e5;
+  --x-rgb: 79, 70, 229;
+  --o: #db2777;
+  --o-rgb: 219, 39, 119;
+  --draw: #64748b;
+  --draw-rgb: 100, 116, 139;
+
+  --card: rgba(255, 255, 255, 0.72);
+  --card-border: rgba(255, 255, 255, 0.9);
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --line: rgba(16, 24, 40, 0.08);
+  --cell-bg: rgba(255, 255, 255, 0.62);
+  --cell-border: rgba(16, 24, 40, 0.055);
+  --cell-hover: rgba(255, 255, 255, 0.98);
+
+  --focus: #2563eb;
+  --shadow-rgb: 16, 24, 40;
+  --danger: #b42318;
+  --glow-1: rgba(99, 102, 241, 0.22);
+  --glow-2: rgba(236, 72, 153, 0.16);
+  --glow-3: rgba(56, 189, 248, 0.18);
+  --primary-from: #4f46e5;
+  --primary-to: #7c3aed;
+  --primary-shadow: 79, 70, 229;
+  --seg-active: rgba(79, 70, 229, 0.12);
+  --seg-active-border: rgba(79, 70, 229, 0.32);
+
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --bg: #070a14;
+  --text: #e8eefb;
+  --muted: #94a3b8;
+
+  --x: #8b95ff;
+  --x-rgb: 139, 149, 255;
+  --o: #f472b6;
+  --o-rgb: 244, 114, 182;
+  --draw: #94a3b8;
+  --draw-rgb: 148, 163, 184;
+
+  --card: rgba(17, 24, 42, 0.68);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.1);
+  --line: rgba(255, 255, 255, 0.09);
+  --cell-bg: rgba(255, 255, 255, 0.035);
+  --cell-border: rgba(255, 255, 255, 0.06);
+  --cell-hover: rgba(255, 255, 255, 0.085);
+
+  --focus: #93c5fd;
+  --shadow-rgb: 0, 0, 0;
+  --danger: #fda4af;
+  --glow-1: rgba(99, 102, 241, 0.3);
+  --glow-2: rgba(236, 72, 153, 0.2);
+  --glow-3: rgba(34, 211, 238, 0.18);
+  --primary-from: #4f46e5;
+  --primary-to: #7c3aed;
+  --primary-shadow: 0, 0, 0;
+  --seg-active: rgba(139, 149, 255, 0.16);
+  --seg-active-border: rgba(139, 149, 255, 0.38);
+
+  color-scheme: dark;
+}
+
+/* ============================================================
+   2. Base layout
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(14px, 3.5vw, 34px) 16px;
+  font-family: var(--font);
+  color: var(--text);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(58vmax 58vmax at 6% -12%, var(--glow-1), transparent 62%),
+    radial-gradient(48vmax 48vmax at 104% 2%, var(--glow-2), transparent 58%),
+    radial-gradient(54vmax 54vmax at 50% 116%, var(--glow-3), transparent 62%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgba(var(--x-rgb), 0.24);
+}
+
+.app {
+  width: 100%;
+  max-width: 436px;
+  margin-block: auto;
+}
+
+/* Screen-reader-only helper */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   3. Header
+   ============================================================ */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: clamp(12px, 2.6vw, 18px);
+  padding-inline: 2px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.brand__logo {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--surface-strong);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 10px 22px -14px rgba(var(--shadow-rgb), 0.55);
+}
+
+.brand__logo svg {
+  width: 25px;
+  height: 25px;
+  display: block;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: clamp(1.08rem, 3.6vw, 1.32rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand > div {
+  min-width: 0;
+}
+
+.topbar__actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.2s ease, transform 0.18s ease, border-color 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: var(--surface-strong);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Icon visibility is driven by state attributes, not by JS. */
+.icon-btn .icon-sound-on,
+.icon-btn .icon-sound-off,
+.icon-btn .icon-music-on,
+.icon-btn .icon-music-off,
+.icon-btn .icon-theme-light,
+.icon-btn .icon-theme-dark {
+  display: none;
+}
+
+#soundToggle[aria-pressed="true"] .icon-sound-on {
+  display: block;
+}
+
+#soundToggle[aria-pressed="false"] .icon-sound-off {
+  display: block;
+}
+
+#musicToggle[aria-pressed="true"] .icon-music-on {
+  display: block;
+}
+
+#musicToggle[aria-pressed="false"] .icon-music-off {
+  display: block;
+}
+
+/* A dimmed note means "on, but waiting for the first gesture". */
+#musicToggle.is-locked .icon-music-on {
+  opacity: 0.5;
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-btn:disabled:hover {
+  background: var(--surface);
+  transform: none;
+}
+
+html[data-theme="light"] .icon-theme-dark {
+  display: block;
+}
+
+html[data-theme="dark"] .icon-theme-light {
+  display: block;
+}
+
+/* ============================================================
+   4. Game card
+   ============================================================ */
+.card {
+  position: relative;
+  padding: clamp(14px, 3.6vw, 22px);
+  border-radius: clamp(20px, 5vw, 28px);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow:
+    0 34px 64px -32px rgba(var(--shadow-rgb), 0.5),
+    0 12px 24px -18px rgba(var(--shadow-rgb), 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  animation: card-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+html[data-theme="dark"] .card {
+  box-shadow:
+    0 34px 64px -32px rgba(0, 0, 0, 0.9),
+    0 12px 24px -18px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-inline: 2px;
+}
+
+.card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 9px;
+  min-width: 0;
+}
+
+/* Compact mode switcher: shows the current mode and opens game setup. */
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  max-width: 148px;
+  padding: 3px 7px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.mode-chip:hover {
+  background: var(--surface-strong);
+  border-color: rgba(var(--shadow-rgb), 0.16);
+  transform: translateY(-1px);
+}
+
+.mode-chip__icon {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--x);
+}
+
+.mode-chip__icon svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mode-chip .mode-chip__bot {
+  display: none;
+}
+
+.mode-chip[data-mode="bot"] .mode-chip__users {
+  display: none;
+}
+
+.mode-chip[data-mode="bot"] .mode-chip__bot {
+  display: block;
+}
+
+.mode-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mode-chip__chevron {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  opacity: 0.55;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.link-btn:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.link-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+/* ============================================================
+   5. Scoreboard
+   ============================================================ */
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 0.86fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.score {
+  --mark: var(--draw);
+  --mark-rgb: var(--draw-rgb);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 9px 6px 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.score--x {
+  --mark: var(--x);
+  --mark-rgb: var(--x-rgb);
+}
+
+.score--o {
+  --mark: var(--o);
+  --mark-rgb: var(--o-rgb);
+}
+
+/* Top accent bar that grows in on the active player. */
+.score::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 36px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--mark);
+  opacity: 0;
+  transform: translate(-50%, -3px) scaleX(0.35);
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.score.is-active {
+  transform: translateY(-2px);
+  background: rgba(var(--mark-rgb), 0.1);
+  border-color: rgba(var(--mark-rgb), 0.4);
+  box-shadow: 0 12px 26px -16px rgba(var(--mark-rgb), 0.9);
+}
+
+.score.is-active::before {
+  opacity: 1;
+  transform: translate(-50%, 0) scaleX(1);
+}
+
+.score__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.score__mark {
+  flex: none;
+  font-weight: 700;
+  font-size: 0.74rem;
+  color: var(--mark);
+}
+
+/* Robot avatar, shown only on the scoreboard card owned by the bot. */
+.score__bot {
+  display: none;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--mark);
+}
+
+.score__bot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.score.is-bot .score__bot {
+  display: block;
+}
+
+.score.is-bot.is-thinking .score__bot {
+  animation: bot-pulse 1.15s ease-in-out infinite;
+}
+
+.score__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score__value {
+  font-size: 1.42rem;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.score__value.is-bump {
+  animation: score-bump 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ============================================================
+   6. Turn / result status
+   ============================================================ */
+.status-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.status__dots {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  flex: none;
+}
+
+.status__dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.status__dot--x {
+  background: var(--x);
+}
+
+.status__dot--o {
+  background: var(--o);
+}
+
+.status[data-turn="X"] .status__dot--x,
+.status[data-turn="O"] .status__dot--o {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.status[data-turn="X"] .status__dot--x,
+.status[data-turn="O"] .status__dot--o {
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+
+.status__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status__text.is-pop {
+  animation: status-pop 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Animated ellipsis shown while the bot is choosing a move. */
+.status__thinking {
+  display: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: -3px;
+  flex: none;
+}
+
+.status.is-thinking .status__thinking {
+  display: inline-flex;
+}
+
+.status__thinking i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: thinking-bounce 0.95s ease-in-out infinite;
+}
+
+.status__thinking i:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.status__thinking i:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+/* ============================================================
+   7. Board and cells
+   ============================================================ */
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(6px, 2.1vw, 10px);
+  width: 100%;
+  aspect-ratio: 1;
+  touch-action: manipulation;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--cell-border);
+  border-radius: clamp(12px, 3.4vw, 18px);
+  background: var(--cell-bg);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow:
+    0 2px 4px rgba(var(--shadow-rgb), 0.035),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+html[data-theme="dark"] .cell {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.cell.is-filled,
+.cell[aria-disabled="true"] {
+  cursor: default;
+}
+
+.cell.is-x {
+  --mark-rgb: var(--x-rgb);
+  color: var(--x);
+}
+
+.cell.is-o {
+  --mark-rgb: var(--o-rgb);
+  color: var(--o);
+}
+
+.cell:active:not(.is-filled):not([aria-disabled="true"]) {
+  transform: scale(0.965);
+}
+
+/* Ghost preview of the mark the current player would place. */
+.ghost {
+  position: absolute;
+  inset: 12%;
+  pointer-events: none;
+}
+
+.ghost svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 9;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.ghost__x {
+  color: var(--x);
+}
+
+.ghost__o {
+  color: var(--o);
+}
+
+/* Only the preview for the player to move is ever eligible. */
+@media (hover: hover) and (pointer: fine) {
+  .cell:not(.is-filled):not([aria-disabled="true"]):hover {
+    transform: translateY(-2px);
+    background: var(--cell-hover);
+    border-color: rgba(var(--mark-rgb, var(--x-rgb)), 0.22);
+    box-shadow: 0 14px 26px -18px rgba(var(--shadow-rgb), 0.65);
+  }
+
+  .board[data-turn="X"] .cell:not(.is-filled):not([aria-disabled="true"]):hover .ghost__x,
+  .board[data-turn="O"] .cell:not(.is-filled):not([aria-disabled="true"]):hover .ghost__o {
+    opacity: 0.2;
+  }
+}
+
+.board[data-turn="X"] .cell:not(.is-filled):focus-visible .ghost__x,
+.board[data-turn="O"] .cell:not(.is-filled):focus-visible .ghost__o {
+  opacity: 0.2;
+}
+
+.cell:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  z-index: 2;
+}
+
+.cell__mark {
+  position: absolute;
+  inset: 12%;
+  display: block;
+}
+
+.cell__mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/* Stroke-draw animation. pathLength="100" normalises every shape. */
+.cell__mark .ink {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: ink-draw 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.cell__mark .ink--2 {
+  animation-delay: 0.075s;
+}
+
+/* Winning cells get a soft tinted glow. */
+.cell.is-win {
+  background: rgba(var(--mark-rgb), 0.12);
+  border-color: rgba(var(--mark-rgb), 0.5);
+  box-shadow:
+    0 0 0 1px rgba(var(--mark-rgb), 0.28) inset,
+    0 16px 32px -18px rgba(var(--mark-rgb), 0.95);
+  animation: win-pulse 1.7s ease-in-out infinite;
+}
+
+.cell.is-win .cell__mark {
+  filter: drop-shadow(0 0 7px rgba(var(--mark-rgb), 0.7));
+}
+
+/* A brief alternate-tinted glow identifies a mark placed by the bot. */
+.cell.is-bot-move .cell__mark {
+  animation: bot-mark-glow 0.75s ease-out;
+}
+
+.board.is-locked .cell:not(.is-filled) {
+  cursor: default;
+}
+
+/* ============================================================
+   8. Animated winning line
+   ============================================================ */
+.win-line {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.win-line.is-visible {
+  opacity: 1;
+}
+
+.win-line.is-x {
+  --line-color: var(--x);
+}
+
+.win-line.is-o {
+  --line-color: var(--o);
+}
+
+.win-line line {
+  stroke: var(--line-color, var(--x));
+  stroke-width: 6.5px;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px var(--line-color, var(--x)));
+}
+
+/* ============================================================
+   9. Buttons and controls
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex: none;
+}
+
+.btn--primary {
+  background-image: linear-gradient(135deg, var(--primary-from), var(--primary-to));
+  color: #ffffff;
+  box-shadow: 0 14px 26px -12px rgba(var(--primary-shadow), 0.85);
+}
+
+html[data-theme="dark"] .btn--primary {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 26px -12px rgba(0, 0, 0, 0.9);
+}
+
+.btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 30px -12px rgba(var(--primary-shadow), 0.95);
+}
+
+html[data-theme="dark"] .btn--primary:hover {
+  box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.95);
+}
+
+.btn--primary:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.btn--ghost {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.btn--ghost:hover {
+  background: var(--surface-strong);
+  border-color: rgba(var(--shadow-rgb), 0.16);
+}
+
+.btn--quiet {
+  color: var(--muted);
+}
+
+.btn--quiet:hover {
+  color: var(--danger);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.controls .btn--primary {
+  grid-column: 1 / -1;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 -2px;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+
+.hint kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hint__keys {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 720px) {
+  .hint__touch {
+    display: none;
+  }
+
+  .hint__keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+}
+
+/* Small, dismiss-free nudge shown until the first user gesture unlocks audio. */
+.audio-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: fit-content;
+  margin: -4px auto clamp(10px, 2.2vw, 14px);
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  animation: hint-in 0.4s ease both;
+}
+
+.audio-hint[hidden] {
+  display: none;
+}
+
+.audio-hint svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  display: block;
+}
+
+.audio-hint i {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--o);
+  animation: hint-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hint-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* ============================================================
+   10. Dialogs
+   ============================================================ */
+dialog {
+  color: var(--text);
+  font-family: inherit;
+}
+
+dialog::backdrop {
+  background: rgba(8, 12, 24, 0.48);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html[data-theme="dark"] dialog::backdrop {
+  background: rgba(2, 4, 10, 0.64);
+}
+
+/* --- Result modal: a full-screen transparent dialog so confetti
+       can be painted above the dimmed backdrop. --- */
+.result {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 20px;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+.result[open] {
+  display: grid;
+  place-items: center;
+}
+
+.result__confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.result__card {
+  position: relative;
+  z-index: 2;
+  width: min(340px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 26px 24px 22px;
+  border: 1px solid var(--card-border);
+  border-radius: 26px;
+  background: var(--card);
+  box-shadow:
+    0 40px 80px -28px rgba(var(--shadow-rgb), 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(26px) saturate(1.4);
+  -webkit-backdrop-filter: blur(26px) saturate(1.4);
+  text-align: center;
+  animation: pop-in 0.35s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+
+html[data-theme="dark"] .result__card {
+  box-shadow:
+    0 40px 80px -28px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.result__badge {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: rgba(var(--mark-rgb), 0.14);
+  border: 1px solid rgba(var(--mark-rgb), 0.32);
+  color: var(--mark);
+  box-shadow: 0 16px 32px -18px rgba(var(--mark-rgb), 0.9);
+}
+
+.result__badge.is-x {
+  --mark: var(--x);
+  --mark-rgb: var(--x-rgb);
+}
+
+.result__badge.is-o {
+  --mark: var(--o);
+  --mark-rgb: var(--o-rgb);
+}
+
+.result__badge.is-draw {
+  --mark: var(--draw);
+  --mark-rgb: var(--draw-rgb);
+}
+
+.result__badge svg {
+  width: 62%;
+  height: 62%;
+  display: block;
+  overflow: visible;
+}
+
+.result__badge .ink {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+.result__title {
+  margin: 0;
+  font-size: clamp(1.3rem, 5vw, 1.55rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.result__sub {
+  margin: 7px 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.result__score {
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.result__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* --- Game setup: segmented controls --- */
+.setup-group {
+  min-width: 0;
+  margin: 0 0 13px;
+  padding: 0;
+  border: 0;
+}
+
+.setup-group legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.seg__option {
+  position: relative;
+  min-width: 0;
+}
+
+.seg__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seg__option label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.seg__option label:hover {
+  color: var(--text);
+  background: rgba(var(--shadow-rgb), 0.05);
+}
+
+.seg__input:checked + label {
+  color: var(--text);
+  background: var(--seg-active);
+  box-shadow: inset 0 0 0 1px var(--seg-active-border);
+}
+
+.seg__input:focus-visible + label {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.seg__mark {
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.seg__option--x .seg__mark {
+  color: var(--x);
+}
+
+.seg__option--o .seg__mark {
+  color: var(--o);
+}
+
+#markO:checked + label {
+  background: rgba(var(--o-rgb), 0.13);
+  box-shadow: inset 0 0 0 1px rgba(var(--o-rgb), 0.34);
+}
+
+.setup-hint {
+  margin: 7px 2px 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.setup-hint strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* --- Music volume --- */
+.range-field {
+  margin: 0 0 10px;
+}
+
+.range-field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.range-field__head label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.range-field__value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.range-field input[type="range"] {
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  accent-color: var(--x);
+  cursor: pointer;
+}
+
+.range-field input[type="range"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#botOptions[hidden],
+#duoNameFields[hidden],
+#botNameField[hidden] {
+  display: none;
+}
+
+.name-fields {
+  margin-top: 2px;
+}
+
+/* --- Settings modal --- */
+.modal {
+  width: min(432px, calc(100vw - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  overflow: visible;
+}
+
+.modal[open] {
+  display: block;
+}
+
+.modal__card {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: 0 40px 80px -30px rgba(var(--shadow-rgb), 0.65);
+  backdrop-filter: blur(26px) saturate(1.4);
+  -webkit-backdrop-filter: blur(26px) saturate(1.4);
+  animation: pop-in 0.28s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
+}
+
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.modal__head h2 {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.modal__close {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.modal__note {
+  margin: 4px 0 16px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.field__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.field__label .score__mark {
+  font-size: 0.84rem;
+}
+
+.field__label svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: block;
+}
+
+.field--x .score__mark {
+  color: var(--x);
+}
+
+.field--o .score__mark {
+  color: var(--o);
+}
+
+.field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.field input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.field input:focus {
+  background: var(--surface-strong);
+  border-color: rgba(var(--x-rgb), 0.6);
+  box-shadow: 0 0 0 4px rgba(var(--x-rgb), 0.14);
+}
+
+.field--o input:focus {
+  border-color: rgba(var(--o-rgb), 0.6);
+  box-shadow: 0 0 0 4px rgba(var(--o-rgb), 0.14);
+}
+
+.modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* ============================================================
+   11. Motion
+   ============================================================ */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ink-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes score-bump {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes thinking-bounce {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes bot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+}
+
+@keyframes bot-mark-glow {
+  0% {
+    filter: drop-shadow(0 0 0 rgba(var(--mark-rgb), 0));
+  }
+  45% {
+    filter: drop-shadow(0 0 12px rgba(var(--mark-rgb), 0.6));
+  }
+  100% {
+    filter: drop-shadow(0 0 2px rgba(var(--mark-rgb), 0.12));
+  }
+}
+
+@keyframes status-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--x-rgb), 0.34);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(var(--x-rgb), 0);
+  }
+}
+
+.status[data-turn="O"] .status__dot--o {
+  animation-name: dot-pulse-o;
+}
+
+@keyframes dot-pulse-o {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--o-rgb), 0.34);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(var(--o-rgb), 0);
+  }
+}
+
+@keyframes win-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(var(--mark-rgb), 0.28) inset,
+      0 16px 32px -18px rgba(var(--mark-rgb), 0.85);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(var(--mark-rgb), 0.5) inset,
+      0 18px 38px -16px rgba(var(--mark-rgb), 1);
+  }
+}
+
+/* A theme-button nudge when toggled. */
+.icon-btn.is-spin svg {
+  animation: icon-spin 0.4s ease;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(-25deg) scale(0.85);
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+
+/* ============================================================
+   12. Responsive & accessibility overrides
+   ============================================================ */
+@media (max-width: 360px) {
+  body {
+    padding: 10px 10px;
+  }
+
+  .card {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .status {
+    font-size: 0.8rem;
+    padding: 5px 12px;
+  }
+
+  .controls {
+    gap: 6px;
+  }
+
+  .btn {
+    min-height: 44px;
+    font-size: 0.82rem;
+    padding: 0 10px;
+  }
+
+  .scoreboard {
+    gap: 6px;
+  }
+
+  .score {
+    padding: 8px 4px 7px;
+  }
+}
+
+@media (max-height: 720px) and (min-width: 480px) {
+  body {
+    padding-block: 14px;
+  }
+
+  .brand p {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .cell__mark .ink {
+    stroke-dashoffset: 0 !important;
+  }
+
+  .status__thinking i,
+  .score.is-bot.is-thinking .score__bot,
+  .cell.is-bot-move .cell__mark {
+    animation: none !important;
+  }
+
+  .result__card,
+  .modal__card,
+  .card {
+    animation: none;
+  }
+}
+</style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M6.5 6.5 14 14M14 6.5 6.5 14" stroke="var(--x)" stroke-width="2.8" stroke-linecap="round" />
+            <circle cx="22.5" cy="22.5" r="5.4" stroke="var(--o)" stroke-width="2.8" />
+          </svg>
+        </span>
+        <div>
+          <h1>Tic Tac Toe</h1>
+          <p id="modeSummary">Two players · one screen</p>
+        </div>
+      </div>
+
+      <div class="topbar__actions">
+        <button type="button" class="icon-btn" id="musicToggle" aria-pressed="true" aria-label="Background music on. Tap or press any key to enable sound." title="Background music on. Tap or press any key to enable sound.">
+          <svg class="icon-music-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 18V6l10-2v11" />
+            <circle cx="6.5" cy="18" r="2.5" />
+            <circle cx="16.5" cy="15" r="2.5" />
+          </svg>
+          <svg class="icon-music-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 18V6l10-2v11" />
+            <circle cx="6.5" cy="18" r="2.5" />
+            <circle cx="16.5" cy="15" r="2.5" />
+            <path d="M3 3l18 18" />
+          </svg>
+        </button>
+
+        <button type="button" class="icon-btn" id="soundToggle" aria-pressed="true" aria-label="Mute sound effects" title="Mute sound effects">
+          <svg class="icon-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 5 6.5 8.5H3v7h3.5L11 19V5Z" />
+            <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+            <path d="M18 6a8.5 8.5 0 0 1 0 12" />
+          </svg>
+          <svg class="icon-sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 5 6.5 8.5H3v7h3.5L11 19V5Z" />
+            <path d="m16 9 5 5m0-5-5 5" />
+          </svg>
+        </button>
+
+        <button type="button" class="icon-btn" id="themeToggle" aria-label="Switch to dark theme" title="Switch to dark theme">
+          <svg class="icon-theme-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20.2 14.3A8.5 8.5 0 1 1 9.7 3.8a6.8 6.8 0 0 0 10.5 10.5Z" />
+          </svg>
+          <svg class="icon-theme-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <p class="audio-hint" id="audioHint" role="status" aria-live="polite" hidden>
+      <i aria-hidden="true"></i>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 5 6.5 8.5H3v7h3.5L11 19V5Z" />
+        <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      </svg>
+      <span id="audioHintText">Tap to enable sound</span>
+    </p>
+
+    <section class="card" aria-label="Game">
+      <div class="card__head">
+        <div class="card__meta">
+          <span class="eyebrow">Scoreboard</span>
+          <button type="button" class="mode-chip" id="modeBtn" data-mode="duo" aria-haspopup="dialog" aria-label="Game mode: 2 Players. Open game setup.">
+            <span class="mode-chip__icon" aria-hidden="true">
+              <svg class="mode-chip__users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20" />
+                <circle cx="10" cy="8" r="3" />
+                <path d="M20 20v-1.5a3.5 3.5 0 0 0-2.6-3.36" />
+                <path d="M15.5 5.2a3 3 0 0 1 0 5.6" />
+              </svg>
+              <svg class="mode-chip__bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                <rect x="4" y="8" width="16" height="11" rx="3" />
+                <path d="M12 8V4" />
+                <circle cx="12" cy="3" r="1" />
+                <path d="M9 13h.01M15 13h.01" />
+                <path d="M9.5 16h5" />
+              </svg>
+            </span>
+            <span class="mode-chip__text" id="modeChipText">2 Players</span>
+            <svg class="mode-chip__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+        </div>
+        <button type="button" class="link-btn" id="namesBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 7h9M4 12h16M11 17h9" />
+            <circle cx="16.5" cy="7" r="1.7" />
+            <circle cx="8.5" cy="17" r="1.7" />
+          </svg>
+          Game setup
+        </button>
+      </div>
+
+      <div class="scoreboard">
+        <div class="score score--x" id="scoreX" role="group" aria-label="Player X, 0 wins">
+          <span class="score__name" aria-hidden="true">
+            <span class="score__mark">X</span>
+            <span class="score__bot">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                <rect x="4" y="8" width="16" height="11" rx="3" />
+                <path d="M12 8V4" />
+                <circle cx="12" cy="3" r="1" />
+                <path d="M9 13h.01M15 13h.01" />
+                <path d="M9.5 16h5" />
+              </svg>
+            </span>
+            <span class="score__text" id="nameX">Player X</span>
+          </span>
+          <span class="score__value" id="scoreXValue" aria-hidden="true">0</span>
+        </div>
+
+        <div class="score score--draw" id="scoreDraw" role="group" aria-label="Draws, 0">
+          <span class="score__name" aria-hidden="true">
+            <span class="score__mark">=</span>
+            <span class="score__text">Draws</span>
+          </span>
+          <span class="score__value" id="scoreDrawValue" aria-hidden="true">0</span>
+        </div>
+
+        <div class="score score--o" id="scoreO" role="group" aria-label="Player O, 0 wins">
+          <span class="score__name" aria-hidden="true">
+            <span class="score__mark">O</span>
+            <span class="score__bot">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                <rect x="4" y="8" width="16" height="11" rx="3" />
+                <path d="M12 8V4" />
+                <circle cx="12" cy="3" r="1" />
+                <path d="M9 13h.01M15 13h.01" />
+                <path d="M9.5 16h5" />
+              </svg>
+            </span>
+            <span class="score__text" id="nameO">Player O</span>
+          </span>
+          <span class="score__value" id="scoreOValue" aria-hidden="true">0</span>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <p class="status" id="status" data-turn="X" role="status" aria-live="polite" aria-atomic="true">
+          <span class="status__dots" aria-hidden="true">
+            <span class="status__dot status__dot--x"></span>
+            <span class="status__dot status__dot--o"></span>
+          </span>
+          <span class="status__text" id="statusText">Player X's turn</span>
+          <span class="status__thinking" aria-hidden="true"><i></i><i></i><i></i></span>
+        </p>
+      </div>
+
+      <p class="sr-only" id="liveAnnounce" role="status" aria-live="polite" aria-atomic="true"></p>
+
+      <div class="board" id="board" role="group" aria-label="Tic Tac Toe board" data-turn="X">
+        <svg class="win-line" id="winLine" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <line id="winLineStroke" pathLength="100" vector-effect="non-scaling-stroke" x1="0" y1="0" x2="100" y2="100" />
+        </svg>
+      </div>
+
+      <div class="controls">
+        <button type="button" class="btn btn--primary" id="againBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+            <path d="M21 3v6h-6" />
+          </svg>
+          Play Again
+        </button>
+
+        <button type="button" class="btn btn--ghost" id="undoBtn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 14 4 9l5-5" />
+            <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+          </svg>
+          Undo
+        </button>
+
+        <button type="button" class="btn btn--ghost btn--quiet" id="resetBtn">Reset Scores</button>
+      </div>
+
+      <p class="hint">
+        <span class="hint__touch">Tap a square to play</span>
+        <span class="hint__keys">
+          <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move
+          <span aria-hidden="true">·</span>
+          <kbd>Enter</kbd> place
+          <span aria-hidden="true">·</span>
+          <kbd>R</kbd> restart
+          <span aria-hidden="true">·</span>
+          <kbd>M</kbd> music
+        </span>
+      </p>
+    </section>
+
+    <noscript>
+      <p class="hint">This game needs JavaScript to run.</p>
+    </noscript>
+  </main>
+
+  <!-- Result modal -->
+  <dialog id="resultDialog" class="result" aria-labelledby="resultTitle" aria-describedby="resultSub">
+    <canvas id="confettiCanvas" class="result__confetti" aria-hidden="true"></canvas>
+    <div class="result__card">
+      <div class="result__badge is-x" id="resultBadge" aria-hidden="true"></div>
+      <h2 class="result__title" id="resultTitle">Player X wins!</h2>
+      <p class="result__sub" id="resultSub">X completed a line.</p>
+      <p class="result__score" id="resultScore">X 0 · Draws 0 · O 0</p>
+      <div class="result__actions">
+        <button type="button" class="btn btn--primary" id="resultAgain" autofocus>Play Again</button>
+        <button type="button" class="btn btn--ghost" id="resultView">View board</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Game setup -->
+  <dialog id="settingsDialog" class="modal" aria-labelledby="settingsTitle">
+    <form class="modal__card" id="settingsForm">
+      <div class="modal__head">
+        <h2 id="settingsTitle">Game setup</h2>
+        <button type="button" class="icon-btn modal__close" id="settingsClose" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="modal__note">Pick a mode, then fine-tune the match. Switching mode or changing bot options starts a new round.</p>
+
+      <fieldset class="setup-group">
+        <legend>Mode</legend>
+        <div class="seg">
+          <div class="seg__option">
+            <input class="seg__input" type="radio" name="mode" id="modeDuo" value="duo" />
+            <label for="modeDuo">2 Players</label>
+          </div>
+          <div class="seg__option">
+            <input class="seg__input" type="radio" name="mode" id="modeBot" value="bot" />
+            <label for="modeBot">vs Bot</label>
+          </div>
+        </div>
+      </fieldset>
+
+      <div id="botOptions">
+        <fieldset class="setup-group">
+          <legend>Difficulty</legend>
+          <div class="seg">
+            <div class="seg__option">
+              <input class="seg__input" type="radio" name="difficulty" id="difficultyEasy" value="easy" />
+              <label for="difficultyEasy">Easy</label>
+            </div>
+            <div class="seg__option">
+              <input class="seg__input" type="radio" name="difficulty" id="difficultyMedium" value="medium" />
+              <label for="difficultyMedium">Medium</label>
+            </div>
+            <div class="seg__option">
+              <input class="seg__input" type="radio" name="difficulty" id="difficultyHard" value="hard" />
+              <label for="difficultyHard">Hard</label>
+            </div>
+          </div>
+          <p class="setup-hint" id="difficultyHint">Takes a win or blocks when it can.</p>
+        </fieldset>
+
+        <fieldset class="setup-group">
+          <legend>Play as</legend>
+          <div class="seg">
+            <div class="seg__option seg__option--x">
+              <input class="seg__input" type="radio" name="mark" id="markX" value="X" />
+              <label for="markX"><span class="seg__mark">X</span></label>
+            </div>
+            <div class="seg__option seg__option--o">
+              <input class="seg__input" type="radio" name="mark" id="markO" value="O" />
+              <label for="markO"><span class="seg__mark">O</span></label>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-group">
+          <legend>First move</legend>
+          <div class="seg">
+            <div class="seg__option">
+              <input class="seg__input" type="radio" name="first" id="firstMe" value="me" />
+              <label for="firstMe">Me</label>
+            </div>
+            <div class="seg__option">
+              <input class="seg__input" type="radio" name="first" id="firstBot" value="bot" />
+              <label for="firstBot">Bot</label>
+            </div>
+            <div class="seg__option">
+              <input class="seg__input" type="radio" name="first" id="firstAlt" value="alternate" />
+              <label for="firstAlt">Alternate</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <p class="setup-hint">Scores are kept separately for each difficulty.</p>
+      </div>
+
+      <div class="name-fields" id="duoNameFields">
+        <div class="field field--x">
+          <label class="field__label" for="nameXInput">
+            <span class="score__mark" aria-hidden="true">X</span> Player X
+          </label>
+          <input id="nameXInput" type="text" maxlength="18" autocomplete="off" spellcheck="false" placeholder="Player X" />
+        </div>
+
+        <div class="field field--o">
+          <label class="field__label" for="nameOInput">
+            <span class="score__mark" aria-hidden="true">O</span> Player O
+          </label>
+          <input id="nameOInput" type="text" maxlength="18" autocomplete="off" spellcheck="false" placeholder="Player O" />
+        </div>
+      </div>
+
+      <div class="name-fields" id="botNameField" hidden>
+        <div class="field">
+          <label class="field__label" for="botNameInput">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20" />
+              <circle cx="10" cy="8" r="3" />
+            </svg>
+            Your name
+          </label>
+          <input id="botNameInput" type="text" maxlength="18" autocomplete="off" spellcheck="false" placeholder="You" />
+          <p class="setup-hint">Shown on the scoreboard and in results. The bot is always “Bot”.</p>
+        </div>
+      </div>
+
+      <fieldset class="setup-group">
+        <legend>Audio</legend>
+        <div class="range-field">
+          <div class="range-field__head">
+            <label for="musicVolume">Music volume</label>
+            <output class="range-field__value" id="musicVolumeValue" for="musicVolume">30%</output>
+          </div>
+          <input type="range" id="musicVolume" min="0" max="100" step="5" value="30" aria-describedby="musicVolumeHint" />
+        </div>
+        <p class="setup-hint" id="musicVolumeHint">Kept below the effects. Press <strong>M</strong> to toggle music, or use the note button above.</p>
+      </fieldset>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="settingsCancel">Cancel</button>
+        <button type="submit" class="btn btn--primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+  (() => {
+    'use strict';
+
+    /* ==========================================================
+       1. Constants
+       ========================================================== */
+    const STORAGE_KEY = 'ttt.prefs.v1';
+    const MAX_NAME_LENGTH = 18;
+    const DEFAULT_NAMES = { X: 'Player X', O: 'Player O' };
+    const BOT_NAME = 'Bot';
+    const DEFAULT_BOT_NAME = 'You';
+    const MODES = ['duo', 'bot'];
+    const DIFFICULTIES = ['easy', 'medium', 'hard'];
+    const FIRST_MOVES = ['me', 'bot', 'alternate'];
+    const DEFAULT_DIFFICULTY = 'medium';
+    const DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+    const THINK_MIN_MS = 400;
+    const THINK_MAX_MS = 800;
+    const MARKS = ['X', 'O'];
+
+    const WIN_LINES = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+      [0, 4, 8], [2, 4, 6]             // diagonals
+    ];
+
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+
+    /* ==========================================================
+       2. Persistence — every call is guarded so the game still
+          works when localStorage is blocked or full.
+       ========================================================== */
+    const storage = {
+      read() {
+        try {
+          const raw = window.localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (error) {
+          return null;
+        }
+      },
+
+      write(prefs) {
+        try {
+          window.localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+              names: prefs.names,
+              botName: prefs.botName,
+              scores: prefs.scores,
+              theme: prefs.theme,
+              muted: prefs.muted,
+              music: prefs.music,
+              musicVolume: prefs.musicVolume,
+              mode: prefs.mode,
+              difficulty: prefs.difficulty,
+              humanMark: prefs.humanMark,
+              first: prefs.first
+            })
+          );
+        } catch (error) {
+          /* Storage unavailable — scores simply last for this session. */
+        }
+      }
+    };
+
+    function cleanName(value, fallback) {
+      const text = String(value == null ? '' : value)
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, MAX_NAME_LENGTH);
+      return text || fallback;
+    }
+
+    /** Coerces a stored score box of numeric counters into safe integers. */
+    function readCounts(source, keys) {
+      const counts = {};
+      keys.forEach((key) => {
+        const value = Number(source && source[key]);
+        counts[key] =
+          Number.isFinite(value) && value >= 0 ? Math.min(Math.floor(value), 9999) : 0;
+      });
+      return counts;
+    }
+
+    function loadPrefs() {
+      const prefs = {
+        names: { X: DEFAULT_NAMES.X, O: DEFAULT_NAMES.O },
+        botName: DEFAULT_BOT_NAME,
+        scores: {
+          duo: { X: 0, O: 0, draws: 0 },
+          bot: {
+            easy: { you: 0, bot: 0, draws: 0 },
+            medium: { you: 0, bot: 0, draws: 0 },
+            hard: { you: 0, bot: 0, draws: 0 }
+          }
+        },
+        theme: 'system',
+        muted: false,
+        music: true,
+        musicVolume: 0.3,
+        mode: 'duo',
+        difficulty: DEFAULT_DIFFICULTY,
+        humanMark: 'X',
+        first: 'me'
+      };
+
+      const saved = storage.read();
+      if (!saved) return prefs;
+
+      if (saved.names && typeof saved.names === 'object') {
+        if (typeof saved.names.X === 'string') {
+          prefs.names.X = cleanName(saved.names.X, DEFAULT_NAMES.X);
+        }
+        if (typeof saved.names.O === 'string') {
+          prefs.names.O = cleanName(saved.names.O, DEFAULT_NAMES.O);
+        }
+      }
+
+      if (typeof saved.botName === 'string') {
+        prefs.botName = cleanName(saved.botName, DEFAULT_BOT_NAME);
+      }
+
+      if (saved.scores && typeof saved.scores === 'object') {
+        // Older saves stored the two-player scores directly on `scores`.
+        const duoSource =
+          saved.scores.duo && typeof saved.scores.duo === 'object'
+            ? saved.scores.duo
+            : saved.scores;
+
+        if ('X' in duoSource || 'O' in duoSource || 'draws' in duoSource) {
+          prefs.scores.duo = readCounts(duoSource, ['X', 'O', 'draws']);
+        }
+
+        if (saved.scores.bot && typeof saved.scores.bot === 'object') {
+          DIFFICULTIES.forEach((difficulty) => {
+            const box = saved.scores.bot[difficulty];
+            if (box && typeof box === 'object') {
+              prefs.scores.bot[difficulty] = readCounts(box, ['you', 'bot', 'draws']);
+            }
+          });
+        }
+      }
+
+      if (saved.theme === 'light' || saved.theme === 'dark' || saved.theme === 'system') {
+        prefs.theme = saved.theme;
+      }
+
+      if (typeof saved.muted === 'boolean') {
+        prefs.muted = saved.muted;
+      }
+
+      if (typeof saved.music === 'boolean') {
+        prefs.music = saved.music;
+      }
+
+      if (typeof saved.musicVolume === 'number' && Number.isFinite(saved.musicVolume)) {
+        prefs.musicVolume = Math.min(1, Math.max(0, saved.musicVolume));
+      }
+
+      if (MODES.indexOf(saved.mode) !== -1) prefs.mode = saved.mode;
+      if (DIFFICULTIES.indexOf(saved.difficulty) !== -1) prefs.difficulty = saved.difficulty;
+      if (MARKS.indexOf(saved.humanMark) !== -1) prefs.humanMark = saved.humanMark;
+      if (FIRST_MOVES.indexOf(saved.first) !== -1) prefs.first = saved.first;
+
+      return prefs;
+    }
+
+    /* ==========================================================
+       3. Game engine — pure state + rules. No DOM in here.
+       ========================================================== */
+    function createGame() {
+      let board;
+      let turn;
+      let starter;
+      let winner;
+      let winningLine;
+      let over;
+      let history;
+
+      function reset(firstPlayer) {
+        board = Array(9).fill(null);
+        turn = firstPlayer;
+        starter = firstPlayer;
+        winner = null;
+        winningLine = null;
+        over = false;
+        history = [];
+      }
+
+      /**
+       * Places the current player's mark.
+       * @returns {null|{index:number, mark:string, line:number[]|null,
+       *                winner:string|null, over:boolean, draw:boolean}}
+       */
+      function place(index) {
+        if (over || index < 0 || index > 8 || board[index]) return null;
+
+        const mark = turn;
+        board[index] = mark;
+        history.push(index);
+
+        const line =
+          WIN_LINES.find((combo) => combo.every((cell) => board[cell] === mark)) || null;
+
+        if (line) {
+          winner = mark;
+          winningLine = line;
+          over = true;
+        } else if (history.length === 9) {
+          over = true;
+        } else {
+          turn = mark === 'X' ? 'O' : 'X';
+        }
+
+        return {
+          index,
+          mark,
+          line,
+          winner,
+          over,
+          draw: over && !winner
+        };
+      }
+
+      /**
+       * Takes back the latest moves while the round is live.
+       * `count` lets bot mode rewind a full turn (bot + human) at once.
+       * Returns the undone moves newest-first.
+       */
+      function undo(count) {
+        if (over || history.length === 0) return null;
+
+        const take = Math.min(Math.max(1, Number(count) || 1), history.length);
+        const undone = [];
+
+        for (let step = 0; step < take; step += 1) {
+          const index = history.pop();
+          const mark = board[index];
+          board[index] = null;
+          turn = mark;
+          undone.push({ index, mark });
+        }
+
+        return undone;
+      }
+
+      /** Immutable snapshot for the UI layer. */
+      function getState() {
+        return {
+          board: board.slice(),
+          turn,
+          starter,
+          winner,
+          line: winningLine ? winningLine.slice() : null,
+          over,
+          moves: history.length
+        };
+      }
+
+      reset('X');
+
+      return { reset, place, undo, getState };
+    }
+
+    /* ==========================================================
+       4. Bot AI — pure functions of the board.
+          getBotMove() never mutates the board it receives and never
+          touches the DOM, so it is easy to reason about and test.
+       ========================================================== */
+    function otherMark(mark) {
+      return mark === 'X' ? 'O' : 'X';
+    }
+
+    function emptyIndices(board) {
+      const free = [];
+      for (let index = 0; index < 9; index += 1) {
+        if (!board[index]) free.push(index);
+      }
+      return free;
+    }
+
+    function randomOf(items) {
+      return items[Math.floor(Math.random() * items.length)];
+    }
+
+    /** Finds the empty cell that would immediately complete a line for `mark`. */
+    function winningCell(board, mark) {
+      for (const line of WIN_LINES) {
+        let empty = -1;
+        let own = 0;
+        let blocked = false;
+
+        for (const index of line) {
+          if (board[index] === mark) own += 1;
+          else if (board[index]) blocked = true;
+          else if (empty === -1) empty = index;
+          else empty = -2; // more than one empty: this line is not immediate
+        }
+
+        if (!blocked && own === 2 && empty >= 0) return empty;
+      }
+      return -1;
+    }
+
+    /** 'X' / 'O' for a completed line, 'draw' for a full board, else null. */
+    function terminalMark(board) {
+      for (const line of WIN_LINES) {
+        const [a, b, c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return board[a];
+        }
+      }
+      return board.every(Boolean) ? 'draw' : null;
+    }
+
+    /**
+     * Minimax with alpha-beta pruning, scored from the bot's perspective.
+     * A win is worth 10 minus the depth, so faster wins are preferred;
+     * a loss is worth depth minus 10, so the bot delays losing as long as
+     * possible (which also helps it fight for a draw). Alpha (best score
+     * the maximiser can force) and beta (best the minimiser can force)
+     * let us skip branches that cannot change the result.
+     */
+    function minimax(board, current, botMark, humanMark, depth, alpha, beta) {
+      const terminal = terminalMark(board);
+
+      if (terminal === botMark) return 10 - depth;
+      if (terminal === humanMark) return depth - 10;
+      if (terminal === 'draw') return 0;
+
+      const maximizing = current === botMark;
+
+      if (maximizing) {
+        let best = -Infinity;
+        for (let index = 0; index < 9; index += 1) {
+          if (board[index]) continue;
+          board[index] = botMark;
+          const score = minimax(board, humanMark, botMark, humanMark, depth + 1, alpha, beta);
+          board[index] = null;
+          if (score > best) best = score;
+          if (best > alpha) alpha = best;
+          if (beta <= alpha) break; // the opponent would avoid this branch
+        }
+        return best;
+      }
+
+      let best = Infinity;
+      for (let index = 0; index < 9; index += 1) {
+        if (board[index]) continue;
+        board[index] = humanMark;
+        const score = minimax(board, botMark, botMark, humanMark, depth + 1, alpha, beta);
+        board[index] = null;
+        if (score < best) best = score;
+        if (best < beta) beta = best;
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+
+    function chooseHardMove(board, botMark, humanMark) {
+      let bestScore = -Infinity;
+      const bestMoves = [];
+
+      // Evaluate every legal reply, then choose among equally perfect moves.
+      for (let index = 0; index < 9; index += 1) {
+        if (board[index]) continue;
+        board[index] = botMark;
+        const score = minimax(board, humanMark, botMark, humanMark, 1, -Infinity, Infinity);
+        board[index] = null;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMoves.length = 0;
+          bestMoves.push(index);
+        } else if (score === bestScore) {
+          bestMoves.push(index);
+        }
+      }
+
+      return bestMoves.length ? randomOf(bestMoves) : -1;
+    }
+
+    /**
+     * @param {Array<string|null>} board 9-cell snapshot, never mutated.
+     * @param {'X'|'O'} botMark
+     * @param {'easy'|'medium'|'hard'} difficulty
+     * @returns {number} empty cell index, or -1 when the board is full.
+     */
+    function getBotMove(board, botMark, difficulty) {
+      if (!Array.isArray(board) || board.length !== 9) return -1;
+
+      const humanMark = otherMark(botMark);
+      const work = board.slice();
+      const free = emptyIndices(work);
+      if (!free.length) return -1;
+
+      if (difficulty === 'easy') {
+        // Mostly random, with a small chance to notice a win or a threat.
+        if (Math.random() < 0.28) {
+          const win = winningCell(work, botMark);
+          if (win !== -1) return win;
+        }
+        if (Math.random() < 0.32) {
+          const block = winningCell(work, humanMark);
+          if (block !== -1) return block;
+        }
+        return randomOf(free);
+      }
+
+      if (difficulty === 'medium') {
+        // Simple priority list: win, block, centre, corner, anything.
+        const win = winningCell(work, botMark);
+        if (win !== -1) return win;
+
+        const block = winningCell(work, humanMark);
+        if (block !== -1) return block;
+
+        if (!work[4]) return 4;
+
+        const corners = [0, 2, 6, 8].filter((index) => !work[index]);
+        if (corners.length) return randomOf(corners);
+
+        return randomOf(free);
+      }
+
+      return chooseHardMove(work, botMark, humanMark);
+    }
+
+    /* ==========================================================
+       5. Audio — one Web Audio graph for music and effects.
+
+       Browsers refuse to start audio before a real user gesture,
+       so the graph is built lazily and `unlock()` is bound to the
+       first pointer/touch/key press. Music is produced by a
+       look-ahead scheduler: a timer wakes up often, but every note
+       time comes from AudioContext.currentTime, so the loop never
+       drifts. Music and effects each have their own gain node, and
+       both run through one master gain.
+       ========================================================== */
+    const AudioManager = (() => {
+      const LOOKAHEAD_MS = 25;      // scheduler wake-up interval
+      const SCHEDULE_AHEAD = 0.18;  // seconds of notes queued in advance
+      const FADE_IN_SECONDS = 0.3;  // 200–400ms fade, no clicks
+      const FADE_OUT_MS = 320;
+      const DUCK_LEVEL = 0.72;      // win/draw jingle ducks music ~28%
+      const DUCK_HOLD_MS = 300;
+
+      // Eighth notes at a calm 76 BPM. Four chords of eight steps
+      // make a ~13-second loop that starts and ends smoothly.
+      const STEP_SECONDS = 60 / 76 / 2;
+      const STEPS_PER_CHORD = 8;
+      const CHORDS = [
+        { // Am
+          bass: 110.0,
+          pad: [220.0, 261.63, 329.63],
+          lead: [440.0, 523.25, 659.25, 523.25, 587.33, 440.0, 392.0, null]
+        },
+        { // Fmaj7
+          bass: 87.31,
+          pad: [174.61, 220.0, 261.63],
+          lead: [349.23, 440.0, 523.25, 440.0, 392.0, 349.23, 329.63, null]
+        },
+        { // C
+          bass: 130.81,
+          pad: [261.63, 329.63, 392.0],
+          lead: [523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 523.25, null]
+        },
+        { // G
+          bass: 98.0,
+          pad: [196.0, 246.94, 293.66],
+          lead: [392.0, 493.88, 587.33, 493.88, 440.0, 392.0, 349.23, null]
+        }
+      ];
+      const TOTAL_STEPS = CHORDS.length * STEPS_PER_CHORD;
+
+      let ctx = null;
+      let masterGain = null;
+      let musicGain = null;
+      let sfxGain = null;
+
+      let supported = Boolean(window.AudioContext || window.webkitAudioContext);
+      let unlocked = false;
+      let unlocking = false;
+      let onChange = null;
+
+      let sfxEnabled = true;
+      let musicEnabled = true;
+      let musicVolume = 0.3;
+
+      let musicRunning = false;
+      let visibilityPaused = false;
+      let stepIndex = 0;
+      let nextStepTime = 0;
+      let schedulerTimer = 0;
+      let stopTimer = 0;
+      let duckTimer = 0;
+      let listenersAttached = false;
+      let suspendWarned = false;
+
+      // Music voices are tracked so a restart can never stack loops.
+      const voices = new Set();
+
+      function notify() {
+        if (typeof onChange === 'function') onChange();
+      }
+
+      function isLocked() {
+        if (!supported) return false;
+        return !unlocked || !ctx || ctx.state !== 'running';
+      }
+
+      function ensureContext() {
+        if (ctx || !supported) return ctx;
+
+        try {
+          const AudioCtor = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtor) {
+            supported = false;
+            console.warn('[audio] Web Audio is not supported in this browser.');
+            notify();
+            return null;
+          }
+
+          ctx = new AudioCtor();
+          masterGain = ctx.createGain();
+          musicGain = ctx.createGain();
+          sfxGain = ctx.createGain();
+
+          masterGain.gain.value = 1;
+          musicGain.gain.value = 0; // always fade the music in
+          sfxGain.gain.value = 1;
+
+          musicGain.connect(masterGain);
+          sfxGain.connect(masterGain);
+          masterGain.connect(ctx.destination);
+
+          if (typeof ctx.addEventListener === 'function') {
+            ctx.addEventListener('statechange', handleStateChange);
+          }
+
+          return ctx;
+        } catch (error) {
+          supported = false;
+          ctx = null;
+          masterGain = null;
+          musicGain = null;
+          sfxGain = null;
+          console.warn('[audio] Could not create an AudioContext:', error);
+          notify();
+          return null;
+        }
+      }
+
+      /** Re-arm the unlock path if the browser suspends an idle context. */
+      function handleStateChange() {
+        if (!ctx) return;
+
+        if (ctx.state === 'running') {
+          unlocked = true;
+          suspendWarned = false;
+          notify();
+          return;
+        }
+
+        if (ctx.state !== 'closed' && (musicEnabled || sfxEnabled) && !visibilityPaused && !document.hidden) {
+          unlocked = false;
+          if (!suspendWarned) {
+            suspendWarned = true;
+            console.warn(
+              '[audio] AudioContext was suspended; tap or press a key to resume it.'
+            );
+          }
+          attachUnlockListeners();
+          notify();
+        }
+      }
+
+      function resumeContext() {
+        if (!ctx) return Promise.resolve(false);
+        if (ctx.state === 'running') {
+          unlocked = true;
+          return Promise.resolve(true);
+        }
+
+        return ctx
+          .resume()
+          .then(() => {
+            unlocked = ctx.state === 'running';
+            if (!unlocked) {
+              console.warn('[audio] AudioContext is still suspended after resume().');
+              attachUnlockListeners();
+            }
+            notify();
+            return unlocked;
+          })
+          .catch((error) => {
+            unlocked = false;
+            console.warn('[audio] AudioContext.resume() was rejected:', error);
+            // Keep a way back in: the next tap or key press retries resume().
+            attachUnlockListeners();
+            notify();
+            return false;
+          });
+      }
+
+      function attachUnlockListeners() {
+        if (listenersAttached || !supported) return;
+        listenersAttached = true;
+        document.addEventListener('pointerdown', unlock, true);
+        document.addEventListener('keydown', unlock, true);
+        document.addEventListener('click', unlock, true);
+      }
+
+      function detachUnlockListeners() {
+        if (!listenersAttached) return;
+        listenersAttached = false;
+        document.removeEventListener('pointerdown', unlock, true);
+        document.removeEventListener('keydown', unlock, true);
+        document.removeEventListener('click', unlock, true);
+      }
+
+      /** First gesture: build/resume the context, then start the music. */
+      function unlock() {
+        if (unlocking) return;
+        if (!ensureContext()) {
+          detachUnlockListeners();
+          return;
+        }
+
+        unlocking = true;
+        resumeContext().then((ok) => {
+          unlocking = false;
+          if (!ok) return; // keep the listeners for the next gesture
+
+          unlocked = true;
+          detachUnlockListeners();
+          if (musicEnabled && !visibilityPaused && !document.hidden) startMusic();
+          notify();
+        });
+      }
+
+      function targetMusicGain() {
+        return musicEnabled && !visibilityPaused && musicRunning ? musicVolume : 0;
+      }
+
+      /** All music gain moves happen here, so fades cannot fight each other. */
+      function rampMusicGain(seconds, multiplier) {
+        if (!ctx || !musicGain) return;
+        const now = ctx.currentTime;
+        const target = targetMusicGain() * (multiplier == null ? 1 : multiplier);
+
+        try {
+          if (typeof musicGain.gain.cancelAndHoldAtTime === 'function') {
+            musicGain.gain.cancelAndHoldAtTime(now);
+          } else {
+            musicGain.gain.cancelScheduledValues(now);
+            musicGain.gain.setValueAtTime(Math.max(0, musicGain.gain.value), now);
+          }
+          musicGain.gain.linearRampToValueAtTime(target, now + Math.max(0.01, seconds));
+        } catch (error) {
+          console.warn('[audio] Could not change the music volume:', error);
+        }
+      }
+
+      /** A single oscillator voice routed into the music bus. */
+      function musicTone(frequency, when, duration, type, peak) {
+        if (!ctx || !musicGain) return;
+
+        try {
+          const oscillator = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          oscillator.type = type;
+          oscillator.frequency.setValueAtTime(frequency, when);
+
+          gain.gain.setValueAtTime(0.0001, when);
+          gain.gain.linearRampToValueAtTime(peak, when + 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+
+          oscillator.connect(gain);
+          gain.connect(musicGain);
+          oscillator.start(when);
+          oscillator.stop(when + duration + 0.05);
+
+          voices.add(oscillator);
+          oscillator.onended = () => {
+            voices.delete(oscillator);
+            try {
+              oscillator.disconnect();
+              gain.disconnect();
+            } catch (error) {
+              /* Already disconnected. */
+            }
+          };
+        } catch (error) {
+          console.warn('[audio] Could not schedule a music note:', error);
+        }
+      }
+
+      /** Queues one step of bass, pad and lead at an absolute audio time. */
+      function scheduleStep(index, when) {
+        const chord = CHORDS[Math.floor(index / STEPS_PER_CHORD) % CHORDS.length];
+        const position = index % STEPS_PER_CHORD;
+
+        if (position === 0) {
+          musicTone(chord.bass, when, 2.4, 'sine', 0.09);
+          chord.pad.forEach((frequency, padIndex) => {
+            musicTone(frequency, when + 0.02 + padIndex * 0.015, 3.2, 'sine', 0.026);
+          });
+        }
+
+        const lead = chord.lead[position];
+        if (lead) {
+          musicTone(lead, when, 0.62, 'triangle', 0.05);
+          if (position === 2 || position === 5) {
+            // Quiet octave shimmer keeps the loop from feeling mechanical.
+            musicTone(lead * 2, when + STEP_SECONDS * 0.5, 0.42, 'sine', 0.014);
+          }
+        }
+      }
+
+      /** Look-ahead loop: queue notes just ahead of currentTime. */
+      function tick() {
+        if (!ctx || !musicRunning || !musicEnabled || visibilityPaused) return;
+
+        if (ctx.state !== 'running') {
+          if (!suspendWarned) {
+            suspendWarned = true;
+            console.warn('[audio] Music is waiting for the AudioContext to resume.');
+          }
+          return;
+        }
+
+        suspendWarned = false;
+        const horizon = ctx.currentTime + SCHEDULE_AHEAD;
+        let guard = 0;
+
+        while (nextStepTime < horizon && guard < 64) {
+          scheduleStep(stepIndex, nextStepTime);
+          nextStepTime += STEP_SECONDS;
+          stepIndex = (stepIndex + 1) % TOTAL_STEPS;
+          guard += 1;
+        }
+      }
+
+      function startMusic() {
+        if (!supported || !ctx || !unlocked || !musicEnabled || visibilityPaused) return;
+        if (musicRunning) {
+          rampMusicGain(0.25);
+          return;
+        }
+
+        window.clearTimeout(stopTimer);
+        stopTimer = 0;
+
+        // Release notes left over from an interrupted fade before restarting.
+        stopVoices(ctx.currentTime);
+
+        musicRunning = true;
+
+        // Resume near where the phrase stopped, but never in the past.
+        if (nextStepTime < ctx.currentTime + 0.05 || nextStepTime > ctx.currentTime + 1) {
+          nextStepTime = ctx.currentTime + 0.06;
+        }
+
+        tick();
+        schedulerTimer = window.setInterval(tick, LOOKAHEAD_MS);
+        rampMusicGain(FADE_IN_SECONDS);
+      }
+
+      function stopVoices(when) {
+        const stopAt = Math.max(when, ctx ? ctx.currentTime : 0);
+        voices.forEach((oscillator) => {
+          try {
+            oscillator.stop(stopAt);
+          } catch (error) {
+            /* The note may have already ended. */
+          }
+        });
+        voices.clear();
+      }
+
+      function stopMusic(fadeSeconds) {
+        const fade = fadeSeconds == null ? FADE_OUT_MS / 1000 : fadeSeconds;
+
+        if (schedulerTimer) {
+          window.clearInterval(schedulerTimer);
+          schedulerTimer = 0;
+        }
+        window.clearTimeout(stopTimer);
+        window.clearTimeout(duckTimer);
+        duckTimer = 0;
+
+        musicRunning = false;
+        rampMusicGain(fade);
+
+        if (ctx) {
+          stopTimer = window.setTimeout(() => {
+            stopVoices(ctx ? ctx.currentTime : 0);
+          }, Math.round(fade * 1000) + 20);
+        }
+      }
+
+      function duckMusic() {
+        if (!musicRunning || !musicEnabled) return;
+
+        window.clearTimeout(duckTimer);
+        rampMusicGain(0.08, DUCK_LEVEL);
+        duckTimer = window.setTimeout(() => {
+          duckTimer = 0;
+          if (musicRunning) rampMusicGain(0.25);
+        }, DUCK_HOLD_MS);
+      }
+
+      function sfxTone(frequency, delay, duration, type, volume, endFrequency) {
+        if (!sfxEnabled) return;
+        if (!ensureContext() || !ctx || !sfxGain) return;
+
+        if (ctx.state === 'suspended') {
+          resumeContext().then((ok) => {
+            if (ok && musicEnabled && !visibilityPaused && !document.hidden) startMusic();
+          });
+        }
+
+        try {
+          const start = ctx.currentTime + delay;
+          const oscillator = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          oscillator.type = type;
+          oscillator.frequency.setValueAtTime(frequency, start);
+          if (endFrequency) {
+            oscillator.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
+          }
+
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+          oscillator.connect(gain);
+          gain.connect(sfxGain);
+          oscillator.start(start);
+          oscillator.stop(start + duration + 0.03);
+        } catch (error) {
+          console.warn('[audio] Could not play a sound effect:', error);
+        }
+      }
+
+      return {
+        init(callback) {
+          onChange = typeof callback === 'function' ? callback : null;
+
+          if (!supported) {
+            console.warn(
+              '[audio] Web Audio is unavailable; music and sound effects are disabled.'
+            );
+          } else {
+            attachUnlockListeners();
+          }
+
+          notify();
+        },
+
+        /** Stores preferences without re-entering the UI callback. */
+        configure(options) {
+          if (!options) return;
+
+          const wasMusic = musicEnabled;
+          const wasVolume = musicVolume;
+
+          if (typeof options.music === 'boolean') musicEnabled = options.music;
+          if (typeof options.sfx === 'boolean') sfxEnabled = options.sfx;
+          if (typeof options.volume === 'number' && Number.isFinite(options.volume)) {
+            musicVolume = Math.min(1, Math.max(0, options.volume));
+          }
+
+          if (musicEnabled !== wasMusic) {
+            if (!musicEnabled || visibilityPaused) {
+              if (musicRunning) stopMusic();
+            } else if (unlocked) {
+              startMusic();
+            }
+          } else if (musicVolume !== wasVolume && musicRunning) {
+            rampMusicGain(0.2);
+          }
+        },
+
+        unlock,
+
+        isSupported() {
+          return supported;
+        },
+
+        isLocked,
+
+        isMusicRunning() {
+          return musicRunning;
+        },
+
+        /** visibilitychange: fade out while hidden, resume only if allowed. */
+        setHidden(hidden) {
+          visibilityPaused = Boolean(hidden);
+
+          if (visibilityPaused) {
+            if (musicRunning) stopMusic(0.22);
+            notify();
+            return;
+          }
+
+          if (!musicEnabled && !sfxEnabled) {
+            notify();
+            return;
+          }
+
+          if (!ctx) {
+            notify();
+            return;
+          }
+
+          if (ctx.state !== 'running') {
+            resumeContext().then((ok) => {
+              if (ok && musicEnabled && !visibilityPaused) startMusic();
+            });
+          } else if (unlocked) {
+            startMusic();
+          }
+
+          notify();
+        },
+
+        pluck(mark) {
+          if (mark === 'O') {
+            sfxTone(523.25, 0, 0.11, 'triangle', 0.05, 392);
+          } else {
+            sfxTone(659.25, 0, 0.1, 'triangle', 0.05, 523.25);
+          }
+        },
+
+        win() {
+          duckMusic();
+          [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+            sfxTone(frequency, index * 0.095, 0.34, 'triangle', 0.055);
+          });
+          sfxTone(261.63, 0, 0.5, 'sine', 0.04);
+        },
+
+        draw() {
+          duckMusic();
+          sfxTone(392, 0, 0.2, 'sine', 0.05, 330);
+          sfxTone(329.63, 0.14, 0.28, 'sine', 0.045, 261.63);
+        },
+
+        undo() {
+          sfxTone(440, 0, 0.13, 'sine', 0.035, 300);
+        },
+
+        /** Exposed for debugging and automated smoke tests. */
+        getState() {
+          return {
+            supported,
+            unlocked,
+            locked: isLocked(),
+            musicEnabled,
+            musicRunning,
+            musicVolume,
+            sfxEnabled,
+            contextState: ctx ? ctx.state : 'none'
+          };
+        }
+      };
+    })();
+
+    /* ==========================================================
+       5. SVG artwork
+       ========================================================== */
+    const MARK_SVG = {
+      X: `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+            <path class="ink" pathLength="100" d="M28 28 L72 72" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" />
+            <path class="ink ink--2" pathLength="100" d="M72 28 L28 72" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" />
+          </svg>`,
+      O: `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+            <circle class="ink" pathLength="100" cx="50" cy="50" r="27" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" />
+          </svg>`
+    };
+
+    const DRAW_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <path d="M26 42h48M26 58h48" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" />
+      </svg>`;
+
+    /* ==========================================================
+       6. DOM references
+       ========================================================== */
+    const byId = (id) => document.getElementById(id);
+
+    const boardEl = byId('board');
+    const winLineSvg = byId('winLine');
+    const winLineStroke = byId('winLineStroke');
+    const statusEl = byId('status');
+    const statusTextEl = byId('statusText');
+
+    const scoreXEl = byId('scoreX');
+    const scoreOEl = byId('scoreO');
+    const scoreDrawEl = byId('scoreDraw');
+    const nameXEl = byId('nameX');
+    const nameOEl = byId('nameO');
+    const scoreXValue = byId('scoreXValue');
+    const scoreOValue = byId('scoreOValue');
+    const scoreDrawValue = byId('scoreDrawValue');
+
+    const undoBtn = byId('undoBtn');
+    const againBtn = byId('againBtn');
+    const resetBtn = byId('resetBtn');
+    const musicToggle = byId('musicToggle');
+    const soundToggle = byId('soundToggle');
+    const audioHint = byId('audioHint');
+    const audioHintText = byId('audioHintText');
+    const themeToggle = byId('themeToggle');
+    const namesBtn = byId('namesBtn');
+    const modeBtn = byId('modeBtn');
+    const modeChipText = byId('modeChipText');
+    const modeSummary = byId('modeSummary');
+    const liveAnnounce = byId('liveAnnounce');
+    const metaTheme = byId('metaTheme');
+
+    const settingsDialog = byId('settingsDialog');
+    const settingsForm = byId('settingsForm');
+    const settingsClose = byId('settingsClose');
+    const settingsCancel = byId('settingsCancel');
+    const nameXInput = byId('nameXInput');
+    const nameOInput = byId('nameOInput');
+    const botNameInput = byId('botNameInput');
+    const modeDuoInput = byId('modeDuo');
+    const modeBotInput = byId('modeBot');
+    const difficultyInputs = {
+      easy: byId('difficultyEasy'),
+      medium: byId('difficultyMedium'),
+      hard: byId('difficultyHard')
+    };
+    const markInputs = { X: byId('markX'), O: byId('markO') };
+    const firstInputs = {
+      me: byId('firstMe'),
+      bot: byId('firstBot'),
+      alternate: byId('firstAlt')
+    };
+    const difficultyHint = byId('difficultyHint');
+    const botOptions = byId('botOptions');
+    const duoNameFields = byId('duoNameFields');
+    const botNameField = byId('botNameField');
+    const musicVolumeInput = byId('musicVolume');
+    const musicVolumeValue = byId('musicVolumeValue');
+
+    const resultDialog = byId('resultDialog');
+    const resultBadge = byId('resultBadge');
+    const resultTitle = byId('resultTitle');
+    const resultSub = byId('resultSub');
+    const resultScore = byId('resultScore');
+    const resultAgain = byId('resultAgain');
+    const resultView = byId('resultView');
+    const confettiCanvas = byId('confettiCanvas');
+
+    /* ==========================================================
+       7. Build the nine cells once, then reuse them.
+       ========================================================== */
+    function cellMarkup(index) {
+      const row = Math.floor(index / 3) + 1;
+      const column = (index % 3) + 1;
+      return `
+        <button type="button" class="cell" data-index="${index}" data-mark=""
+                tabindex="${index === 0 ? 0 : -1}"
+                aria-label="Row ${row}, column ${column}, empty" aria-disabled="false">
+          <span class="ghost" aria-hidden="true">
+            <svg class="ghost__x" viewBox="0 0 100 100" focusable="false">
+              <path d="M28 28 L72 72" /><path d="M72 28 L28 72" />
+            </svg>
+            <svg class="ghost__o" viewBox="0 0 100 100" focusable="false">
+              <circle cx="50" cy="50" r="27" />
+            </svg>
+          </span>
+          <span class="cell__mark" aria-hidden="true"></span>
+        </button>`;
+    }
+
+    boardEl.insertAdjacentHTML(
+      'beforeend',
+      Array.from({ length: 9 }, (_, index) => cellMarkup(index)).join('')
+    );
+
+    const cells = Array.from(boardEl.querySelectorAll('.cell'));
+
+    /* ==========================================================
+       8. Application state
+       ========================================================== */
+    const prefs = loadPrefs();
+    const game = createGame();
+
+    let roundId = 0;
+    let resultTimer = 0;
+    let botTimer = 0;
+    let botToken = 0;
+    let isBotThinking = false;
+    let lastStatusText = '';
+    let shownLineKey = '';
+
+    /* ==========================================================
+       9. Small UI helpers
+       ========================================================== */
+    function restartAnimation(element, className) {
+      element.classList.remove(className);
+      void element.offsetWidth; // force reflow so the animation restarts
+      element.classList.add(className);
+    }
+
+    function cellLabel(index, mark) {
+      const row = Math.floor(index / 3) + 1;
+      const column = (index % 3) + 1;
+      return mark
+        ? `Row ${row}, column ${column}, ${mark}`
+        : `Row ${row}, column ${column}, empty`;
+    }
+
+    /* ==========================================================
+       10. Theme
+       ========================================================== */
+    function applyTheme() {
+      const theme =
+        prefs.theme === 'light' || prefs.theme === 'dark'
+          ? prefs.theme
+          : themeMedia.matches
+            ? 'dark'
+            : 'light';
+
+      document.documentElement.dataset.theme = theme;
+      metaTheme.setAttribute('content', theme === 'dark' ? '#070a14' : '#eef2fb');
+
+      const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+      themeToggle.setAttribute('aria-label', label);
+      themeToggle.title = label;
+
+      return theme;
+    }
+
+    /* ==========================================================
+       11. Audio chrome — keeps both toggles, the unlock hint and
+           the volume slider in sync with prefs + AudioManager.
+       ========================================================== */
+    function applyAudioChrome() {
+      const supported = AudioManager.isSupported();
+      const locked = AudioManager.isLocked();
+
+      AudioManager.configure({
+        music: prefs.music,
+        volume: prefs.musicVolume,
+        sfx: !prefs.muted
+      });
+
+      musicToggle.disabled = !supported;
+      musicToggle.setAttribute('aria-pressed', String(supported && prefs.music));
+      musicToggle.classList.toggle('is-locked', supported && locked && prefs.music);
+
+      let musicLabel;
+      if (!supported) {
+        musicLabel = 'Background music unavailable in this browser';
+      } else if (!prefs.music) {
+        musicLabel = 'Play background music';
+      } else if (locked) {
+        musicLabel = 'Background music on. Tap or press any key to enable sound.';
+      } else {
+        musicLabel = 'Mute background music';
+      }
+      musicToggle.setAttribute('aria-label', musicLabel);
+      musicToggle.title = musicLabel;
+
+      soundToggle.disabled = !supported;
+      soundToggle.setAttribute('aria-pressed', String(supported && !prefs.muted));
+      const sfxLabel = !supported
+        ? 'Sound effects unavailable in this browser'
+        : prefs.muted
+          ? 'Unmute sound effects'
+          : 'Mute sound effects';
+      soundToggle.setAttribute('aria-label', sfxLabel);
+      soundToggle.title = sfxLabel;
+
+      // The hint clears itself once the first gesture unlocks the context.
+      if (!supported) {
+        audioHint.hidden = false;
+        audioHintText.textContent = 'Sound is unavailable in this browser';
+      } else if (locked && (prefs.music || !prefs.muted)) {
+        audioHint.hidden = false;
+        audioHintText.textContent = 'Tap to enable sound';
+      } else {
+        audioHint.hidden = true;
+      }
+
+      const percent = Math.round(prefs.musicVolume * 100);
+      musicVolumeInput.disabled = !supported;
+      musicVolumeInput.setAttribute('aria-valuetext', `${percent} percent`);
+      if (document.activeElement !== musicVolumeInput) {
+        musicVolumeInput.value = String(percent);
+      }
+      musicVolumeValue.textContent = `${percent}%`;
+    }
+
+    function toggleMusic() {
+      if (!AudioManager.isSupported()) return;
+
+      prefs.music = !prefs.music;
+      applyAudioChrome();
+      storage.write(prefs);
+
+      if (prefs.music) AudioManager.unlock();
+
+      announce(prefs.music ? 'Background music on.' : 'Background music off.');
+    }
+
+    /* ==========================================================
+       12. Rendering
+       ========================================================== */
+    function botMark() {
+      return otherMark(prefs.humanMark);
+    }
+
+    function currentScores() {
+      return prefs.mode === 'bot'
+        ? prefs.scores.bot[prefs.difficulty]
+        : prefs.scores.duo;
+    }
+
+    /** Scoreboard / result label for a mark in the active mode. */
+    function playerName(mark) {
+      if (prefs.mode === 'bot') {
+        return mark === prefs.humanMark ? prefs.botName : BOT_NAME;
+      }
+      return prefs.names[mark];
+    }
+
+    function announce(message) {
+      liveAnnounce.textContent = message;
+    }
+
+    function renderModeChrome() {
+      const isBot = prefs.mode === 'bot';
+      const label = DIFFICULTY_LABELS[prefs.difficulty];
+
+      modeBtn.dataset.mode = prefs.mode;
+      modeChipText.textContent = isBot ? `vs Bot · ${label}` : '2 Players';
+      modeBtn.setAttribute(
+        'aria-label',
+        isBot
+          ? `Game mode: versus bot, ${label}. Open game setup.`
+          : 'Game mode: 2 players. Open game setup.'
+      );
+      modeSummary.textContent = isBot
+        ? `${prefs.botName} vs Bot · ${label}`
+        : 'Two players · one screen';
+
+      const resetLabel = isBot ? `Reset vs Bot ${label} scores` : 'Reset two-player scores';
+      resetBtn.title = resetLabel;
+      resetBtn.setAttribute('aria-label', resetLabel);
+
+      undoBtn.title = isBot ? 'Undo your last turn' : 'Undo last move';
+    }
+
+    function renderScores(bumpKey) {
+      const duo = prefs.mode === 'duo';
+      const scores = currentScores();
+      const human = prefs.humanMark;
+
+      nameXEl.textContent = playerName('X');
+      nameOEl.textContent = playerName('O');
+
+      const xValue = duo ? scores.X : human === 'X' ? scores.you : scores.bot;
+      const oValue = duo ? scores.O : human === 'O' ? scores.you : scores.bot;
+      scoreXValue.textContent = String(xValue);
+      scoreOValue.textContent = String(oValue);
+      scoreDrawValue.textContent = String(scores.draws);
+
+      const xIsBot = !duo && human !== 'X';
+      const oIsBot = !duo && human !== 'O';
+      scoreXEl.classList.toggle('is-bot', xIsBot);
+      scoreOEl.classList.toggle('is-bot', oIsBot);
+      if (!xIsBot) scoreXEl.classList.remove('is-thinking');
+      if (!oIsBot) scoreOEl.classList.remove('is-thinking');
+
+      const winsLabel = (count) => (count === 1 ? '1 win' : `${count} wins`);
+      scoreXEl.setAttribute('aria-label', `${playerName('X')}, ${winsLabel(xValue)}`);
+      scoreOEl.setAttribute('aria-label', `${playerName('O')}, ${winsLabel(oValue)}`);
+      scoreDrawEl.setAttribute('aria-label', `Draws, ${scores.draws}`);
+
+      if (bumpKey === 'X') restartAnimation(scoreXValue, 'is-bump');
+      else if (bumpKey === 'O') restartAnimation(scoreOValue, 'is-bump');
+      else if (bumpKey === 'draws') restartAnimation(scoreDrawValue, 'is-bump');
+    }
+
+    function syncWinningLine(state) {
+      if (!state.line) {
+        shownLineKey = '';
+        winLineSvg.classList.remove('is-visible', 'is-x', 'is-o');
+        return;
+      }
+
+      const key = `${state.line.join('-')}:${state.winner}`;
+      const isNew = key !== shownLineKey;
+      shownLineKey = key;
+
+      winLineSvg.classList.toggle('is-x', state.winner === 'X');
+      winLineSvg.classList.toggle('is-o', state.winner === 'O');
+      winLineSvg.classList.add('is-visible');
+
+      positionWinningLine(state.line);
+      if (isNew) animateWinningLine();
+    }
+
+    function positionWinningLine(line) {
+      // Percentage coordinates keep the line correct at every board size.
+      const width = boardEl.clientWidth || 1;
+      const height = boardEl.clientHeight || 1;
+      const first = cells[line[0]];
+      const last = cells[line[2]];
+
+      const x1 = ((first.offsetLeft + first.offsetWidth / 2) / width) * 100;
+      const y1 = ((first.offsetTop + first.offsetHeight / 2) / height) * 100;
+      const x2 = ((last.offsetLeft + last.offsetWidth / 2) / width) * 100;
+      const y2 = ((last.offsetTop + last.offsetHeight / 2) / height) * 100;
+
+      winLineStroke.setAttribute('x1', x1.toFixed(2));
+      winLineStroke.setAttribute('y1', y1.toFixed(2));
+      winLineStroke.setAttribute('x2', x2.toFixed(2));
+      winLineStroke.setAttribute('y2', y2.toFixed(2));
+    }
+
+    function animateWinningLine() {
+      const shouldAnimate = !reducedMotionQuery.matches;
+
+      winLineStroke.style.transition = 'none';
+      winLineStroke.style.strokeDasharray = '100';
+      winLineStroke.style.strokeDashoffset = shouldAnimate ? '100' : '0';
+
+      if (!shouldAnimate) return;
+
+      void winLineStroke.getBoundingClientRect();
+      requestAnimationFrame(() => {
+        winLineStroke.style.transition =
+          'stroke-dashoffset 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        winLineStroke.style.strokeDashoffset = '0';
+      });
+    }
+
+    function focusCell(index, shouldFocus) {
+      cells.forEach((cell, cellIndex) => {
+        cell.tabIndex = cellIndex === index ? 0 : -1;
+      });
+      if (shouldFocus) {
+        cells[index].focus({ preventScroll: true });
+      }
+    }
+
+    function render() {
+      const state = game.getState();
+      const isBotMode = prefs.mode === 'bot';
+      const thinking = isBotThinking && !state.over;
+      const botTurn = isBotMode && !state.over && state.turn === botMark();
+      const lock = thinking || botTurn;
+
+      boardEl.classList.toggle('is-locked', lock);
+      boardEl.setAttribute('aria-busy', thinking ? 'true' : 'false');
+
+      // Cells: only touch the DOM when a mark actually changed so the
+      // stroke animation is never restarted by an unrelated render.
+      cells.forEach((cell, index) => {
+        const mark = state.board[index];
+        const renderedMark = cell.dataset.mark || '';
+
+        if (mark !== renderedMark) {
+          cell.dataset.mark = mark || '';
+          cell.classList.toggle('is-filled', Boolean(mark));
+          cell.classList.toggle('is-x', mark === 'X');
+          cell.classList.toggle('is-o', mark === 'O');
+          cell.querySelector('.cell__mark').innerHTML = mark ? MARK_SVG[mark] : '';
+        }
+
+        if (!mark) cell.classList.remove('is-bot-move');
+
+        const isWinningCell = Boolean(state.line && state.line.indexOf(index) !== -1);
+        cell.classList.toggle('is-win', isWinningCell);
+        cell.setAttribute('aria-label', cellLabel(index, mark));
+        cell.setAttribute('aria-disabled', mark || state.over || lock ? 'true' : 'false');
+      });
+
+      // Status text + the coloured dot beside it.
+      let text;
+      let dot = '';
+
+      if (state.over) {
+        if (state.winner) {
+          text = isBotMode
+            ? state.winner === prefs.humanMark
+              ? 'You win!'
+              : 'Bot wins!'
+            : `${playerName(state.winner)} wins!`;
+          dot = state.winner;
+        } else {
+          text = "It's a draw!";
+        }
+      } else if (thinking) {
+        text = 'Bot is thinking';
+        dot = botMark();
+      } else {
+        text = isBotMode
+          ? state.turn === prefs.humanMark
+            ? 'Your turn'
+            : `${BOT_NAME}'s turn`
+          : `${playerName(state.turn)}'s turn`;
+        dot = state.turn;
+      }
+
+      statusEl.dataset.turn = dot;
+      statusEl.classList.toggle('is-thinking', thinking);
+      boardEl.dataset.turn = state.over || lock ? '' : state.turn;
+
+      if (text !== lastStatusText) {
+        statusTextEl.textContent = text;
+        lastStatusText = text;
+        restartAnimation(statusTextEl, 'is-pop');
+      }
+
+      // Active player / winner highlight on the scoreboard.
+      const activeMark = state.over ? state.winner : state.turn;
+      scoreXEl.classList.toggle('is-active', activeMark === 'X');
+      scoreOEl.classList.toggle('is-active', activeMark === 'O');
+
+      const bot = botMark();
+      scoreXEl.classList.toggle('is-thinking', thinking && bot === 'X');
+      scoreOEl.classList.toggle('is-thinking', thinking && bot === 'O');
+
+      const canUndo =
+        !state.over &&
+        !thinking &&
+        !botTurn &&
+        state.moves >= (isBotMode ? 2 : 1) &&
+        (!isBotMode || state.turn === prefs.humanMark);
+      undoBtn.disabled = !canUndo;
+
+      syncWinningLine(state);
+    }
+
+    /* ==========================================================
+       13. Round flow
+       ========================================================== */
+    function recordResult(winner) {
+      const scores = currentScores();
+
+      if (prefs.mode === 'bot') {
+        if (!winner) scores.draws += 1;
+        else if (winner === prefs.humanMark) scores.you += 1;
+        else scores.bot += 1;
+      } else if (!winner) {
+        scores.draws += 1;
+      } else {
+        scores[winner] += 1;
+      }
+    }
+
+    function cancelBotTimer() {
+      botToken += 1;
+      isBotThinking = false;
+      if (botTimer) {
+        window.clearTimeout(botTimer);
+        botTimer = 0;
+      }
+    }
+
+    /** Puts the bot on the clock for this turn, unless the round moved on. */
+    function scheduleBotMove() {
+      if (prefs.mode !== 'bot') {
+        cancelBotTimer();
+        return;
+      }
+
+      const state = game.getState();
+      if (state.over || state.turn !== botMark()) {
+        cancelBotTimer();
+        return;
+      }
+
+      cancelBotTimer();
+      isBotThinking = true;
+      render();
+
+      const scheduledRound = roundId;
+      const token = ++botToken;
+      const delay = THINK_MIN_MS + Math.random() * (THINK_MAX_MS - THINK_MIN_MS);
+
+      botTimer = window.setTimeout(() => {
+        botTimer = 0;
+
+        // A reset, mode change, difficulty change or undo bumps the token,
+        // so a stale timeout can never place a mark on a new board.
+        if (token !== botToken || scheduledRound !== roundId) return;
+
+        const current = game.getState();
+        if (current.over || prefs.mode !== 'bot' || current.turn !== botMark()) return;
+
+        isBotThinking = false;
+        const move = getBotMove(current.board, botMark(), prefs.difficulty);
+        if (move < 0) {
+          render();
+          return;
+        }
+        handleMove(move, 'bot');
+      }, delay);
+    }
+
+    /** The mark that opens a round, honouring Me / Bot / Alternate. */
+    function nextStarter(previous, advance) {
+      if (prefs.mode === 'bot') {
+        const human = prefs.humanMark;
+        if (prefs.first === 'me') return human;
+        if (prefs.first === 'bot') return otherMark(human);
+        if (!advance) return human;
+        return previous === human ? otherMark(human) : human;
+      }
+
+      if (!advance) return 'X';
+      return previous === 'X' ? 'O' : 'X';
+    }
+
+    function startRound({ advance = false } = {}) {
+      roundId += 1;
+      cancelBotTimer();
+      window.clearTimeout(resultTimer);
+      resultTimer = 0;
+
+      if (resultDialog.open) resultDialog.close();
+
+      const previous = game.getState().starter;
+      game.reset(nextStarter(previous, advance));
+      lastStatusText = '';
+      render();
+      focusCell(0, true);
+
+      if (prefs.mode === 'bot' && game.getState().turn === botMark()) {
+        scheduleBotMove();
+      }
+    }
+
+    function handleMove(index, source = 'human') {
+      if (source === 'human' && prefs.mode === 'bot') {
+        const current = game.getState();
+        if (isBotThinking || current.over || current.turn !== prefs.humanMark) return;
+      }
+
+      const result = game.place(index);
+      if (!result) return;
+
+      render();
+
+      if (source === 'bot') {
+        const cell = cells[index];
+        cell.classList.add('is-bot-move');
+        restartAnimation(cell, 'is-bot-move');
+
+        const row = Math.floor(index / 3) + 1;
+        const column = (index % 3) + 1;
+        let suffix = 'Your turn.';
+        if (result.over) {
+          suffix = result.winner
+            ? result.winner === prefs.humanMark
+              ? 'You win.'
+              : 'Bot wins.'
+            : 'The round is a draw.';
+        }
+        announce(`Bot placed ${result.mark} in row ${row}, column ${column}. ${suffix}`);
+
+        if (!result.over && !settingsDialog.open && !resultDialog.open) {
+          const nextIndex = game.getState().board.indexOf(null);
+          if (nextIndex !== -1) focusCell(nextIndex, true);
+        }
+      }
+
+      if (result.over) {
+        recordResult(result.winner);
+        storage.write(prefs);
+        renderScores(result.winner || 'draws');
+
+        if (result.winner) AudioManager.win();
+        else AudioManager.draw();
+
+        scheduleResult();
+        return;
+      }
+
+      AudioManager.pluck(result.mark);
+
+      if (source === 'human' && prefs.mode === 'bot') {
+        scheduleBotMove();
+      }
+    }
+
+    function handleUndo() {
+      const state = game.getState();
+      if (state.over || isBotThinking) return;
+
+      const isBotMode = prefs.mode === 'bot';
+      if (isBotMode && (state.turn !== prefs.humanMark || state.moves < 2)) return;
+
+      cancelBotTimer();
+      const undone = game.undo(isBotMode ? 2 : 1);
+      if (!undone || !undone.length) return;
+
+      AudioManager.undo();
+      lastStatusText = '';
+      render();
+
+      // Newest-first: for bot mode the second entry is the human's move,
+      // which is the cell control returns to.
+      const focusTarget = undone[undone.length - 1];
+      focusCell(focusTarget.index, true);
+    }
+
+    function newRound() {
+      startRound({ advance: true });
+    }
+
+    function resetScores() {
+      const scores = currentScores();
+
+      if (prefs.mode === 'bot') {
+        scores.you = 0;
+        scores.bot = 0;
+        scores.draws = 0;
+      } else {
+        scores.X = 0;
+        scores.O = 0;
+        scores.draws = 0;
+      }
+
+      storage.write(prefs);
+      renderScores();
+      startRound({ advance: false });
+    }
+
+    function scheduleResult() {
+      window.clearTimeout(resultTimer);
+      const scheduledRound = roundId;
+
+      resultTimer = window.setTimeout(() => {
+        if (scheduledRound !== roundId) return;
+        if (settingsDialog.open) return; // don't interrupt a name edit
+        showResult();
+      }, 850);
+    }
+
+    function showResult() {
+      const state = game.getState();
+      if (!state.over) return;
+
+      const isBotMode = prefs.mode === 'bot';
+      const scores = currentScores();
+
+      if (state.winner) {
+        resultBadge.className = `result__badge is-${state.winner.toLowerCase()}`;
+        resultBadge.innerHTML = MARK_SVG[state.winner];
+
+        if (isBotMode) {
+          const humanWon = state.winner === prefs.humanMark;
+          resultTitle.textContent = humanWon ? 'You win!' : 'Bot wins!';
+          resultSub.textContent = humanWon ? 'You completed a line.' : 'Bot completed a line.';
+        } else {
+          resultTitle.textContent = `${prefs.names[state.winner]} wins!`;
+          resultSub.textContent = `${state.winner} completed a line.`;
+        }
+      } else {
+        resultBadge.className = 'result__badge is-draw';
+        resultBadge.innerHTML = DRAW_SVG;
+        resultTitle.textContent = "It's a draw!";
+        resultSub.textContent = 'Every square is full — nobody wins this round.';
+      }
+
+      resultScore.textContent = isBotMode
+        ? `${prefs.botName} ${scores.you} · Draws ${scores.draws} · Bot ${scores.bot}`
+        : `X ${scores.X} · Draws ${scores.draws} · O ${scores.O}`;
+
+      if (resultDialog.open) return;
+
+      resultDialog.showModal();
+
+      if (state.winner) {
+        // The dialog is laid out synchronously, so the canvas can be
+        // measured straight away (no rAF, which pauses in hidden tabs).
+        burstConfetti(state.winner);
+      }
+    }
+
+    /* ==========================================================
+       14. Confetti
+       ========================================================== */
+    let confettiFrame = 0;
+    let confettiParticles = [];
+
+    function stopConfetti() {
+      if (confettiFrame) window.cancelAnimationFrame(confettiFrame);
+      confettiFrame = 0;
+      confettiParticles = [];
+
+      const context = confettiCanvas.getContext('2d');
+      if (context) {
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        context.restore();
+      }
+    }
+
+    function burstConfetti(winner) {
+      if (reducedMotionQuery.matches) return;
+
+      const context = confettiCanvas.getContext('2d');
+      if (!context) return;
+
+      stopConfetti();
+
+      const rect = confettiCanvas.getBoundingClientRect();
+      const width = rect.width || window.innerWidth;
+      const height = rect.height || window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      confettiCanvas.width = Math.round(width * dpr);
+      confettiCanvas.height = Math.round(height * dpr);
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const palette =
+        winner === 'O'
+          ? ['#f472b6', '#fb7185', '#fbbf24', '#e879f9', '#ffffff']
+          : ['#818cf8', '#38bdf8', '#a78bfa', '#fbbf24', '#ffffff'];
+
+      const count = width < 480 ? 70 : 110;
+      const originX = width / 2;
+      const originY = height * 0.42;
+
+      confettiParticles = Array.from({ length: count }, () => {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 5 + Math.random() * 8;
+
+        return {
+          x: originX + (Math.random() - 0.5) * 30,
+          y: originY + (Math.random() - 0.5) * 20,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 3,
+          size: 4 + Math.random() * 5,
+          color: palette[Math.floor(Math.random() * palette.length)],
+          rotation: Math.random() * Math.PI,
+          spin: (Math.random() - 0.5) * 0.35,
+          shape: Math.random() > 0.45 ? 'rect' : 'circle',
+          life: 0,
+          ttl: 70 + Math.random() * 45
+        };
+      });
+
+      let lastFrame = performance.now();
+
+      function frame(now) {
+        const step = Math.min((now - lastFrame) / 16.67, 3);
+        lastFrame = now;
+        context.clearRect(0, 0, width, height);
+
+        let alive = 0;
+
+        for (const particle of confettiParticles) {
+          particle.vy += 0.25 * step;
+          particle.vx *= 0.992;
+          particle.vy *= 0.995;
+          particle.x += particle.vx * step;
+          particle.y += particle.vy * step;
+          particle.rotation += particle.spin * step;
+          particle.life += step;
+
+          const alpha = Math.max(0, 1 - particle.life / particle.ttl);
+          if (alpha <= 0 || particle.y > height + 30) continue;
+          alive += 1;
+
+          context.save();
+          context.globalAlpha = alpha;
+          context.translate(particle.x, particle.y);
+          context.rotate(particle.rotation);
+          context.fillStyle = particle.color;
+
+          if (particle.shape === 'rect') {
+            context.fillRect(-particle.size / 2, -particle.size / 4, particle.size, particle.size / 2);
+          } else {
+            context.beginPath();
+            context.arc(0, 0, particle.size / 2.4, 0, Math.PI * 2);
+            context.fill();
+          }
+
+          context.restore();
+        }
+
+        if (alive > 0) {
+          confettiFrame = window.requestAnimationFrame(frame);
+        } else {
+          context.clearRect(0, 0, width, height);
+          confettiFrame = 0;
+        }
+      }
+
+      confettiFrame = window.requestAnimationFrame(frame);
+    }
+
+    /* ==========================================================
+       15. Game setup dialog
+       ========================================================== */
+    function checkedSetupValue(name, fallback) {
+      const input = settingsForm.querySelector(`input[name="${name}"]:checked`);
+      return input ? input.value : fallback;
+    }
+
+    function updateDifficultyHint() {
+      const difficulty = checkedSetupValue('difficulty', prefs.difficulty);
+      difficultyHint.textContent =
+        {
+          easy: 'Mostly random — a gentle warm-up.',
+          medium: 'Takes a win or blocks when it can.',
+          hard: 'Perfect play — a draw is the best you can do.'
+        }[difficulty] || '';
+    }
+
+    function syncSetupVisibility() {
+      const isBot = modeBotInput.checked;
+      botOptions.hidden = !isBot;
+      duoNameFields.hidden = isBot;
+      botNameField.hidden = !isBot;
+      updateDifficultyHint();
+    }
+
+    function openSettings() {
+      modeDuoInput.checked = prefs.mode === 'duo';
+      modeBotInput.checked = prefs.mode === 'bot';
+      DIFFICULTIES.forEach((difficulty) => {
+        difficultyInputs[difficulty].checked = difficulty === prefs.difficulty;
+      });
+      MARKS.forEach((mark) => {
+        markInputs[mark].checked = mark === prefs.humanMark;
+      });
+      FIRST_MOVES.forEach((first) => {
+        firstInputs[first].checked = first === prefs.first;
+      });
+
+      nameXInput.value = prefs.names.X;
+      nameOInput.value = prefs.names.O;
+      botNameInput.value = prefs.botName;
+
+      syncSetupVisibility();
+      settingsDialog.showModal();
+      (prefs.mode === 'bot' ? modeBotInput : modeDuoInput).focus();
+    }
+
+    settingsForm.addEventListener('change', (event) => {
+      if (event.target.name === 'mode') syncSetupVisibility();
+      if (event.target.name === 'difficulty') updateDifficultyHint();
+    });
+
+    settingsForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const newMode = checkedSetupValue('mode', prefs.mode);
+      const newDifficulty = checkedSetupValue('difficulty', prefs.difficulty);
+      const newMark = checkedSetupValue('mark', prefs.humanMark);
+      const newFirst = checkedSetupValue('first', prefs.first);
+      const state = game.getState();
+
+      const modeChanged = newMode !== prefs.mode;
+      const roundInProgress = !state.over && state.moves > 0;
+
+      if (modeChanged && roundInProgress) {
+        const confirmed = window.confirm(
+          'Switch game mode? The current round will be discarded.'
+        );
+        if (!confirmed) return;
+      }
+
+      const botConfigChanged =
+        newMode === 'bot' &&
+        (newDifficulty !== prefs.difficulty ||
+          newMark !== prefs.humanMark ||
+          newFirst !== prefs.first);
+
+      if (newMode === 'bot') {
+        prefs.botName = cleanName(botNameInput.value, DEFAULT_BOT_NAME);
+      } else {
+        prefs.names.X = cleanName(nameXInput.value, DEFAULT_NAMES.X);
+        prefs.names.O = cleanName(nameOInput.value, DEFAULT_NAMES.O);
+      }
+
+      prefs.mode = newMode;
+      prefs.difficulty = newDifficulty;
+      prefs.humanMark = newMark;
+      prefs.first = newFirst;
+
+      storage.write(prefs);
+      renderScores();
+      renderModeChrome();
+      settingsDialog.close();
+
+      if (modeChanged || botConfigChanged) {
+        startRound({ advance: false });
+      } else {
+        lastStatusText = '';
+        render();
+      }
+    });
+
+    /* ==========================================================
+       16. Event wiring
+       ========================================================== */
+    boardEl.addEventListener('click', (event) => {
+      const cell = event.target.closest('.cell');
+      if (!cell) return;
+      handleMove(Number(cell.dataset.index));
+    });
+
+    boardEl.addEventListener('focusin', (event) => {
+      const cell = event.target.closest('.cell');
+      if (!cell) return;
+      focusCell(Number(cell.dataset.index), false);
+    });
+
+    // Roving arrow-key navigation + Enter/Space placement.
+    boardEl.addEventListener('keydown', (event) => {
+      const cell = event.target.closest('.cell');
+      if (!cell) return;
+
+      const index = Number(cell.dataset.index);
+      const row = Math.floor(index / 3);
+      const column = index % 3;
+      let nextRow;
+      let nextColumn;
+
+      switch (event.key) {
+        case 'ArrowRight':
+          nextRow = row;
+          nextColumn = (column + 1) % 3;
+          break;
+        case 'ArrowLeft':
+          nextRow = row;
+          nextColumn = (column + 2) % 3;
+          break;
+        case 'ArrowDown':
+          nextRow = (row + 1) % 3;
+          nextColumn = column;
+          break;
+        case 'ArrowUp':
+          nextRow = (row + 2) % 3;
+          nextColumn = column;
+          break;
+        case 'Home':
+          nextRow = 0;
+          nextColumn = 0;
+          break;
+        case 'End':
+          nextRow = 2;
+          nextColumn = 2;
+          break;
+        case 'Enter':
+        case ' ':
+          event.preventDefault();
+          handleMove(index);
+          return;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      focusCell(nextRow * 3 + nextColumn, true);
+    });
+
+    againBtn.addEventListener('click', newRound);
+    undoBtn.addEventListener('click', handleUndo);
+    resetBtn.addEventListener('click', resetScores);
+    namesBtn.addEventListener('click', openSettings);
+    modeBtn.addEventListener('click', openSettings);
+
+    musicToggle.addEventListener('click', toggleMusic);
+
+    soundToggle.addEventListener('click', () => {
+      prefs.muted = !prefs.muted;
+      applyAudioChrome();
+      storage.write(prefs);
+      if (!prefs.muted) AudioManager.pluck('X');
+    });
+
+    musicVolumeInput.addEventListener('input', () => {
+      const value = Number(musicVolumeInput.value);
+      prefs.musicVolume = Number.isFinite(value)
+        ? Math.min(1, Math.max(0, value / 100))
+        : 0.3;
+      applyAudioChrome();
+      storage.write(prefs);
+    });
+
+    themeToggle.addEventListener('click', () => {
+      prefs.theme = applyTheme() === 'dark' ? 'light' : 'dark';
+      applyTheme();
+      storage.write(prefs);
+      restartAnimation(themeToggle, 'is-spin');
+    });
+
+    settingsClose.addEventListener('click', () => settingsDialog.close());
+    settingsCancel.addEventListener('click', () => settingsDialog.close());
+
+    settingsDialog.addEventListener('click', (event) => {
+      if (event.target === settingsDialog) settingsDialog.close();
+    });
+
+    settingsDialog.addEventListener('close', () => {
+      if (settingsDialog.open || resultDialog.open) return;
+
+      // A result can finish while the setup dialog is open; reveal it now.
+      if (game.getState().over) {
+        window.setTimeout(() => {
+          if (!settingsDialog.open && !resultDialog.open && game.getState().over) {
+            showResult();
+          }
+        }, 180);
+        return;
+      }
+
+      // If the bot's turn was waiting when the dialog opened, resume it.
+      if (prefs.mode === 'bot' && !isBotThinking && game.getState().turn === botMark()) {
+        scheduleBotMove();
+      }
+    });
+
+    resultAgain.addEventListener('click', () => {
+      if (resultDialog.open) resultDialog.close();
+      newRound();
+    });
+
+    resultView.addEventListener('click', () => resultDialog.close());
+
+    resultDialog.addEventListener('click', (event) => {
+      if (event.target === resultDialog) resultDialog.close();
+    });
+
+    resultDialog.addEventListener('close', stopConfetti);
+
+    // Global shortcuts: M = music, R = restart, Ctrl/Cmd+Z = undo.
+    document.addEventListener('keydown', (event) => {
+      if (event.defaultPrevented) return;
+
+      const target = event.target;
+      const isTyping =
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      const isTextEntry =
+        target instanceof HTMLElement &&
+        (target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          (target.tagName === 'INPUT' &&
+            ['text', 'search', 'email', 'url', 'tel', 'password', 'number'].indexOf(
+              target.type || 'text'
+            ) !== -1));
+
+      // M stays available inside the settings dialog (except while typing),
+      // because the volume control advertises it.
+      if (isTextEntry) return;
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'm' || event.key === 'M')) {
+        event.preventDefault();
+        toggleMusic();
+        return;
+      }
+
+      if (isTyping || settingsDialog.open) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && (event.key === 'z' || event.key === 'Z')) {
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'r' || event.key === 'R')) {
+        event.preventDefault();
+        newRound();
+      }
+    });
+
+    // Fade the music out while the tab is hidden and bring it back on return.
+    document.addEventListener('visibilitychange', () => {
+      AudioManager.setHidden(document.hidden);
+    });
+
+    if (typeof themeMedia.addEventListener === 'function') {
+      themeMedia.addEventListener('change', () => {
+        if (prefs.theme === 'system') applyTheme();
+      });
+    } else if (typeof themeMedia.addListener === 'function') {
+      themeMedia.addListener(() => {
+        if (prefs.theme === 'system') applyTheme();
+      });
+    }
+
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(() => {
+        const state = game.getState();
+        if (state.line) positionWinningLine(state.line);
+      }).observe(boardEl);
+    }
+
+    /* ==========================================================
+       17. Start
+       ========================================================== */
+    AudioManager.init(applyAudioChrome);
+    applyTheme();
+    applyAudioChrome();
+    renderScores();
+    renderModeChrome();
+
+    // Open with the starter implied by the saved mode and preferences.
+    game.reset(nextStarter(undefined, false));
+    lastStatusText = '';
+    render();
+    focusCell(0, false);
+
+    if (prefs.mode === 'bot' && game.getState().turn === botMark()) {
+      scheduleBotMove();
+    }
+  })();
+  </script>
+</body>
+</html>
