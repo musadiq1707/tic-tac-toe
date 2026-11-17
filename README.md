@@ -1,2 +1,19 @@
-# tic-tac-toe
-Modern two-player Tic Tac Toe for the browser, with an unbeatable minimax bot, background music, light/dark themes, and full keyboard and screen reader support. Single-file vanilla HTML, CSS, and JS.
+# Modern Tic Tac Toe
+
+A polished, dependency-free Tic Tac Toe game that runs in any modern browser. Play with a friend on the same device or challenge a bot with three difficulty levels, including an unbeatable minimax mode.
+
+## Features
+- Two-player local mode and Play vs Bot (Easy, Medium, Hard)
+- Persistent scoreboard and best times (localStorage)
+- Background music and sound effects built with the Web Audio API
+- Light and dark themes with smooth animations
+- Responsive layout, keyboard controls, ARIA labels, and reduced-motion support
+
+## Getting Started
+Download or clone the repo and open `index.html` in your browser. No build step or install required.
+
+## Tech Stack
+HTML5, CSS3, and vanilla JavaScript in a single file.
+
+## License
+MIT
