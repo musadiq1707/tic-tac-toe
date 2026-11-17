@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tic-tac-toe-two-xi-12.vercel.app/sitemap.xml
