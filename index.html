@@ -1276,10 +1276,29 @@
         }
 
         .controls {
-            display: grid;
+            display: flex;
+            flex-wrap: wrap;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
             margin-top: 14px;
+        }
+
+        #againBtn {
+            flex: 1 1 100%;
+        }
+
+        #undoBtn,
+        #pauseBtn,
+        #resetBtn {
+            flex: 1 1 0;
+            min-width: 0;          /* lets them shrink instead of wrapping */
+            padding-inline: 10px;  /* tighter padding so all three fit on small screens */
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        #pauseBtn[hidden] {
+            display: none;
         }
 
         .controls .btn--primary {
@@ -5613,7 +5632,6 @@
             onWarn: () => announce('5 seconds left.'),
             onExpire: applyTimeoutPenalty
         });
-        window.__timer = TimerManager; // TEMP: test hook, remove before delivery
 
         // Open with the starter implied by the saved mode and preferences.
         game.reset(nextStarter(undefined, false));
