@@ -138,6 +138,7 @@
             --focus: #2563eb;
             --shadow-rgb: 16, 24, 40;
             --danger: #b42318;
+            --timer-warn: #b45309;
             --glow-1: rgba(99, 102, 241, 0.22);
             --glow-2: rgba(236, 72, 153, 0.16);
             --glow-3: rgba(56, 189, 248, 0.18);
@@ -174,6 +175,7 @@
             --focus: #93c5fd;
             --shadow-rgb: 0, 0, 0;
             --danger: #fda4af;
+            --timer-warn: #fcd34d;
             --glow-1: rgba(99, 102, 241, 0.3);
             --glow-2: rgba(236, 72, 153, 0.2);
             --glow-3: rgba(34, 211, 238, 0.18);
@@ -679,7 +681,10 @@
        ============================================================ */
         .status-row {
             display: flex;
+            align-items: center;
             justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
             margin-bottom: 12px;
         }
 
@@ -773,6 +778,220 @@
 
         .status__thinking i:nth-child(3) {
             animation-delay: 0.24s;
+        }
+
+        /* ============================================================
+       6b. Timer chip, pause overlay, "Time's up" toast
+       ============================================================ */
+        .timer {
+            --timer-color: var(--primary-from);
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 34px;
+            padding: 4px 13px 4px 5px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface);
+            transition: opacity 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+        }
+
+        .timer__ring {
+            width: 25px;
+            height: 25px;
+            flex: none;
+            transform: rotate(-90deg);
+        }
+
+        .timer__ring circle {
+            fill: none;
+            stroke-width: 3.4;
+        }
+
+        .timer__ring-bg {
+            stroke: rgba(var(--shadow-rgb), 0.14);
+        }
+
+        .timer__ring-fg {
+            stroke: var(--timer-color);
+            stroke-linecap: round;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 0;
+            transition: stroke 0.3s ease;
+        }
+
+        .timer__text {
+            min-width: 2ch;
+            font-size: 0.92rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--timer-color);
+            text-align: center;
+        }
+
+        /* Game clock: stopwatch text only, no ring. */
+        .timer[data-mode="clock"] {
+            padding-left: 12px;
+        }
+
+        .timer[data-mode="clock"] .timer__ring {
+            display: none;
+        }
+
+        /* Amber at 5 seconds left, red pulse at 3. */
+        .timer[data-level="warn"] {
+            --timer-color: var(--timer-warn);
+        }
+
+        .timer[data-level="critical"] {
+            --timer-color: var(--danger);
+        }
+
+        .timer[data-level="critical"] .timer__text {
+            animation: timer-pulse 1s ease-in-out infinite;
+        }
+
+        /* Suspended: bot thinking, round over, or frozen behind a dialog. */
+        .timer.is-idle,
+        .timer.is-paused {
+            opacity: 0.55;
+        }
+
+        .timer.is-shake {
+            animation: timer-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+        }
+
+        /* Scoreboard: dim the player whose timer is not running. */
+        .score.is-dim {
+            opacity: 0.55;
+        }
+
+        .score.is-timing {
+            box-shadow: 0 0 0 2px rgba(var(--mark-rgb), 0.22);
+        }
+
+        /* Pause overlay covering the board. */
+        .pause-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 18px;
+            background: rgba(var(--shadow-rgb), 0.32);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+        }
+
+        .pause-overlay[hidden] {
+            display: none;
+        }
+
+        .pause-overlay__card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 20px 26px;
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            background: var(--surface-strong);
+            box-shadow: 0 24px 48px -24px rgba(var(--shadow-rgb), 0.65);
+            text-align: center;
+            animation: pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .pause-overlay__title {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .pause-overlay__sub {
+            margin: 0 0 10px;
+            font-size: 0.76rem;
+            line-height: 1.45;
+            color: var(--muted);
+        }
+
+        /* "Time's up!" toast — visual only, details go to the live region. */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 22px;
+            z-index: 40;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface-strong);
+            box-shadow: 0 18px 36px -18px rgba(var(--shadow-rgb), 0.6);
+            color: var(--text);
+            font-size: 0.84rem;
+            font-weight: 600;
+            opacity: 0;
+            transform: translateX(-50%) translateY(6px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+        }
+
+        .toast.is-visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast svg {
+            width: 15px;
+            height: 15px;
+            flex: none;
+            color: var(--danger);
+        }
+
+        .timer-sublabel {
+            margin: 10px 2px 5px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        #pauseBtn .icon-play {
+            display: none;
+        }
+
+        #pauseBtn[data-state="paused"] .icon-play {
+            display: block;
+        }
+
+        #pauseBtn[data-state="paused"] .icon-pause {
+            display: none;
+        }
+
+        @keyframes timer-pulse {
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        @keyframes timer-shake {
+            20% {
+                transform: translateX(-4px);
+            }
+
+            40% {
+                transform: translateX(4px);
+            }
+
+            60% {
+                transform: translateX(-3px);
+            }
+
+            80% {
+                transform: translateX(3px);
+            }
         }
 
         /* ============================================================
@@ -1067,6 +1286,11 @@
             grid-column: 1 / -1;
         }
 
+        /* With the Pause button shown, Reset Scores gets its own full row. */
+        .controls.has-pause .btn--quiet {
+            grid-column: 1 / -1;
+        }
+
         .hint {
             display: flex;
             align-items: center;
@@ -1309,6 +1533,14 @@
             font-size: 0.8rem;
             font-weight: 500;
             color: var(--muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .result__time {
+            margin: 8px 0 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text);
             font-variant-numeric: tabular-nums;
         }
 
@@ -1806,6 +2038,17 @@
                 stroke-dashoffset: 0 !important;
             }
 
+            /* Timer: no pulse, no shake, no smooth drain (stepped instead). */
+            .timer.is-shake,
+            .timer[data-level="critical"] .timer__text,
+            .pause-overlay__card {
+                animation: none !important;
+            }
+
+            .timer__ring-fg {
+                transition: none !important;
+            }
+
             .status__thinking i,
             .score.is-bot.is-thinking .score__bot,
             .cell.is-bot-move .cell__mark {
@@ -2020,6 +2263,14 @@
                 <span class="status__text" id="statusText">Player X's turn</span>
                 <span class="status__thinking" aria-hidden="true"><i></i><i></i><i></i></span>
             </p>
+
+            <div class="timer" id="timerChip" data-mode="off" data-level="normal" hidden>
+                <svg class="timer__ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+                    <circle class="timer__ring-bg" cx="18" cy="18" r="15.2" />
+                    <circle class="timer__ring-fg" id="timerRing" cx="18" cy="18" r="15.2" pathLength="100" />
+                </svg>
+                <span class="timer__text" id="timerText">10</span>
+            </div>
         </div>
 
         <p class="sr-only" id="liveAnnounce" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -2028,9 +2279,17 @@
             <svg class="win-line" id="winLine" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                 <line id="winLineStroke" pathLength="100" vector-effect="non-scaling-stroke" x1="0" y1="0" x2="100" y2="100" />
             </svg>
+
+            <div class="pause-overlay" id="pauseOverlay" hidden>
+                <div class="pause-overlay__card" role="dialog" aria-modal="false" aria-labelledby="pauseTitle" aria-describedby="pauseSub">
+                    <p class="pause-overlay__title" id="pauseTitle">Paused</p>
+                    <p class="pause-overlay__sub" id="pauseSub">The timer is frozen while the game waits.</p>
+                    <button type="button" class="btn btn--primary" id="resumeBtn">Resume</button>
+                </div>
+            </div>
         </div>
 
-        <div class="controls">
+        <div class="controls" id="controls">
             <button type="button" class="btn btn--primary" id="againBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M21 12a9 9 0 1 1-2.6-6.4" />
@@ -2047,6 +2306,16 @@
                 Undo
             </button>
 
+            <button type="button" class="btn btn--ghost" id="pauseBtn" hidden data-state="running">
+                <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M8 5h3v14H8zM13 5h3v14h-3z" />
+                </svg>
+                <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M8 5l11 7-11 7z" />
+                </svg>
+                <span id="pauseBtnText">Pause</span>
+            </button>
+
             <button type="button" class="btn btn--ghost btn--quiet" id="resetBtn">Reset Scores</button>
         </div>
 
@@ -2059,10 +2328,21 @@
           <span aria-hidden="true">·</span>
           <kbd>R</kbd> restart
           <span aria-hidden="true">·</span>
+          <kbd>P</kbd> pause
+          <span aria-hidden="true">·</span>
           <kbd>M</kbd> music
         </span>
         </p>
     </section>
+
+    <div class="toast" id="timerToast" aria-hidden="true" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2.5 2.5" />
+            <path d="M9 2h6" />
+        </svg>
+        <span id="timerToastText">Time's up!</span>
+    </div>
 
     <noscript>
         <p class="hint">Tic Tac Toe needs JavaScript to play. Enable JavaScript in your browser to start a game against the bot or a friend.</p>
@@ -2141,6 +2421,7 @@
         <h2 class="result__title" id="resultTitle">Player X wins!</h2>
         <p class="result__sub" id="resultSub">X completed a line.</p>
         <p class="result__score" id="resultScore">X 0 · Draws 0 · O 0</p>
+        <p class="result__time" id="resultTime" hidden></p>
         <div class="result__actions">
             <button type="button" class="btn btn--primary" id="resultAgain" autofocus>Play Again</button>
             <button type="button" class="btn btn--ghost" id="resultView">View board</button>
@@ -2262,6 +2543,65 @@
         </div>
 
         <fieldset class="setup-group">
+            <legend>Timer</legend>
+            <div class="seg">
+                <div class="seg__option">
+                    <input class="seg__input" type="radio" name="timerMode" id="timerModeOff" value="off" />
+                    <label for="timerModeOff">Off</label>
+                </div>
+                <div class="seg__option">
+                    <input class="seg__input" type="radio" name="timerMode" id="timerModeTurn" value="turn" />
+                    <label for="timerModeTurn">Turn timer</label>
+                </div>
+                <div class="seg__option">
+                    <input class="seg__input" type="radio" name="timerMode" id="timerModeClock" value="clock" />
+                    <label for="timerModeClock">Game clock</label>
+                </div>
+            </div>
+
+            <div id="timerTurnOptions" hidden>
+                <p class="timer-sublabel" id="timerDurationLabel">Seconds per turn</p>
+                <div class="seg">
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnDuration" id="duration5" value="5" />
+                        <label for="duration5">5s</label>
+                    </div>
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnDuration" id="duration10" value="10" />
+                        <label for="duration10">10s</label>
+                    </div>
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnDuration" id="duration15" value="15" />
+                        <label for="duration15">15s</label>
+                    </div>
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnDuration" id="duration30" value="30" />
+                        <label for="duration30">30s</label>
+                    </div>
+                </div>
+
+                <p class="timer-sublabel" id="timerPenaltyLabel">When time runs out</p>
+                <div class="seg">
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnPenalty" id="penaltySkip" value="skip" />
+                        <label for="penaltySkip">Skip turn</label>
+                    </div>
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnPenalty" id="penaltyRandom" value="random" />
+                        <label for="penaltyRandom">Random move</label>
+                    </div>
+                    <div class="seg__option">
+                        <input class="seg__input" type="radio" name="turnPenalty" id="penaltyForfeit" value="forfeit" />
+                        <label for="penaltyForfeit">Forfeit</label>
+                    </div>
+                </div>
+                <p class="setup-hint">Applies to the player whose timer ran out. The bot is never timed.</p>
+            </div>
+
+            <p class="setup-hint" id="timerClockHint" hidden>Counts up every round. Fastest wins are saved per player and per bot difficulty.</p>
+        </fieldset>
+
+        <fieldset class="setup-group">
             <legend>Audio</legend>
             <div class="range-field">
                 <div class="range-field__head">
@@ -2300,6 +2640,13 @@
         const THINK_MIN_MS = 400;
         const THINK_MAX_MS = 800;
         const MARKS = ['X', 'O'];
+
+        const TIMER_MODES = ['off', 'turn', 'clock'];
+        const TURN_DURATIONS = [5, 10, 15, 30];        // seconds per turn
+        const TURN_PENALTIES = ['skip', 'random', 'forfeit'];
+        const DEFAULT_TURN_DURATION = 10;
+        const PAUSE_HOLD = 'user';      // Pause button / P / auto-pause
+        const DIALOG_HOLD = 'settings'; // setup dialog open
 
         const WIN_LINES = [
             [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
@@ -2341,7 +2688,11 @@
                             mode: prefs.mode,
                             difficulty: prefs.difficulty,
                             humanMark: prefs.humanMark,
-                            first: prefs.first
+                            first: prefs.first,
+                            timerMode: prefs.timerMode,
+                            turnDuration: prefs.turnDuration,
+                            turnPenalty: prefs.turnPenalty,
+                            bestTimes: prefs.bestTimes
                         })
                     );
                 } catch (error) {
@@ -2369,6 +2720,43 @@
             return counts;
         }
 
+        function defaultBestTimes() {
+            return {
+                duo: { X: 0, O: 0 },
+                bot: {
+                    easy: { you: 0, bot: 0 },
+                    medium: { you: 0, bot: 0 },
+                    hard: { you: 0, bot: 0 }
+                }
+            };
+        }
+
+        /** Keeps a stored best-time table; junk values are dropped. */
+        function readBestTimes(source) {
+            const best = defaultBestTimes();
+            if (!source || typeof source !== 'object') return best;
+
+            const cap = 3599999; // 59:59
+            const readMs = (value) => {
+                const ms = Number(value);
+                return Number.isFinite(ms) && ms > 0 ? Math.min(ms, cap) : 0;
+            };
+
+            if (source.duo && typeof source.duo === 'object') {
+                ['X', 'O'].forEach((mark) => {
+                    best.duo[mark] = readMs(source.duo[mark]);
+                });
+            }
+            if (source.bot && typeof source.bot === 'object') {
+                DIFFICULTIES.forEach((difficulty) => {
+                    const box = source.bot[difficulty];
+                    if (!box || typeof box !== 'object') return;
+                    best.bot[difficulty] = { you: readMs(box.you), bot: readMs(box.bot) };
+                });
+            }
+            return best;
+        }
+
         function loadPrefs() {
             const prefs = {
                 names: { X: DEFAULT_NAMES.X, O: DEFAULT_NAMES.O },
@@ -2388,7 +2776,11 @@
                 mode: 'duo',
                 difficulty: DEFAULT_DIFFICULTY,
                 humanMark: 'X',
-                first: 'me'
+                first: 'me',
+                timerMode: 'off',
+                turnDuration: DEFAULT_TURN_DURATION,
+                turnPenalty: 'random',
+                bestTimes: defaultBestTimes()
             };
 
             const saved = storage.read();
@@ -2448,6 +2840,15 @@
             if (DIFFICULTIES.indexOf(saved.difficulty) !== -1) prefs.difficulty = saved.difficulty;
             if (MARKS.indexOf(saved.humanMark) !== -1) prefs.humanMark = saved.humanMark;
             if (FIRST_MOVES.indexOf(saved.first) !== -1) prefs.first = saved.first;
+
+            if (TIMER_MODES.indexOf(saved.timerMode) !== -1) prefs.timerMode = saved.timerMode;
+            if (TURN_DURATIONS.indexOf(Number(saved.turnDuration)) !== -1) {
+                prefs.turnDuration = Number(saved.turnDuration);
+            }
+            if (TURN_PENALTIES.indexOf(saved.turnPenalty) !== -1) {
+                prefs.turnPenalty = saved.turnPenalty;
+            }
+            prefs.bestTimes = readBestTimes(saved.bestTimes);
 
             return prefs;
         }
@@ -2531,6 +2932,23 @@
                 return undone;
             }
 
+            /** Timeout penalty: pass the turn without placing a mark. */
+            function pass() {
+                if (over) return null;
+                const skipped = turn;
+                turn = skipped === 'X' ? 'O' : 'X';
+                return { skipped };
+            }
+
+            /** Timeout penalty: the opponent wins the round immediately. */
+            function forfeit(winnerMark) {
+                if (over) return null;
+                winner = winnerMark;
+                winningLine = null;
+                over = true;
+                return { winner };
+            }
+
             /** Immutable snapshot for the UI layer. */
             function getState() {
                 return {
@@ -2546,7 +2964,7 @@
 
             reset('X');
 
-            return { reset, place, undo, getState };
+            return { reset, place, pass, forfeit, undo, getState };
         }
 
         /* ==========================================================
@@ -3241,6 +3659,17 @@
                     sfxTone(440, 0, 0.13, 'sine', 0.035, 300);
                 },
 
+                /** Quiet tick for each of the final three countdown seconds. */
+                tick() {
+                    sfxTone(1174.66, 0, 0.05, 'square', 0.014);
+                },
+
+                /** Distinct "time's up" sting, quieter than the win jingle. */
+                timeout() {
+                    sfxTone(392, 0, 0.14, 'square', 0.045, 261.63);
+                    sfxTone(196, 0.12, 0.3, 'sawtooth', 0.04, 98);
+                },
+
                 /** Exposed for debugging and automated smoke tests. */
                 getState() {
                     return {
@@ -3252,6 +3681,342 @@
                         musicVolume,
                         sfxEnabled,
                         contextState: ctx ? ctx.state : 'none'
+                    };
+                }
+            };
+        })();
+
+        /* ==========================================================
+       5b. Timer — one controller for the turn countdown and the
+           game clock.
+
+       Drift-free timing: every deadline is an absolute
+       performance.now() timestamp. The requestAnimationFrame
+       loop below only renders — it never accumulates time — so
+       throttled or dropped frames cannot make it drift. Pausing
+       records "milliseconds remaining" and rebuilds the deadline
+       from a fresh performance.now() on resume, so time spent
+       paused (or with the setup dialog open) never counts. A
+       single one-shot setTimeout alarm fires the exact expiry
+       even where rAF frames stop, and at most one rAF loop and
+       one alarm exist at any moment because every entry point
+       clears before it re-arms.
+       ========================================================== */
+        const TimerManager = (() => {
+            const WARN_SECONDS = 5;     // amber warning
+            const CRITICAL_SECONDS = 3; // red pulse + per-second ticks
+
+            let mode = 'off';           // 'off' | 'turn' | 'clock'
+            let durationMs = 10000;
+            let penalty = 'random';     // 'skip' | 'random' | 'forfeit'
+
+            let kind = 'none';          // 'none' | 'turn' | 'clock'
+            let turnMark = null;        // player the countdown belongs to
+            let deadline = 0;           // absolute expiry timestamp (turn)
+            let remainMs = 0;           // ms left while frozen (turn)
+            let clockBase = 0;          // current run start (clock)
+            let clockAccum = 0;         // ms banked before clockBase
+            let clockStarted = false;   // first move of the round made?
+
+            let rafId = 0;              // the single render loop
+            let alarmId = 0;            // the single expiry alarm
+            let lastQuantum = null;     // last rendered second
+            let forceRender = false;
+            let warned = false;         // 5s warning announced this turn
+
+            const holds = new Set();    // freeze reasons: 'user', 'settings'
+
+            let onChange = null;
+            let onWarn = null;
+            let onExpire = null;
+
+            function frozen() {
+                return holds.size > 0;
+            }
+
+            function stopLoop() {
+                if (rafId) {
+                    window.cancelAnimationFrame(rafId);
+                    rafId = 0;
+                }
+            }
+
+            function clearAlarm() {
+                if (alarmId) {
+                    window.clearTimeout(alarmId);
+                    alarmId = 0;
+                }
+            }
+
+            /** Stop the flow of time without forgetting where we were. */
+            function freeze() {
+                if (kind === 'turn') {
+                    remainMs = Math.max(0, deadline - performance.now());
+                    clearAlarm();
+                }
+                if (kind === 'clock' && clockBase) {
+                    clockAccum += performance.now() - clockBase;
+                    clockBase = 0;
+                }
+                stopLoop();
+            }
+
+            /** Restart the flow of time from where it stopped. */
+            function thaw() {
+                if (kind === 'turn' && remainMs > 0) {
+                    deadline = performance.now() + remainMs;
+                    armAlarm();
+                }
+                if (kind === 'clock' && clockStarted && !clockBase) {
+                    clockBase = performance.now();
+                }
+                forceRender = true;
+                startLoop();
+            }
+
+            function startLoop() {
+                if (rafId || frozen() || kind === 'none') return;
+                rafId = window.requestAnimationFrame(frame);
+            }
+
+            /** Re-arm the one-shot expiry alarm for the current deadline. */
+            function armAlarm() {
+                clearAlarm();
+                alarmId = window.setTimeout(() => {
+                    alarmId = 0;
+                    if (kind !== 'turn' || frozen()) return;
+
+                    kind = 'none';
+                    stopLoop();
+                    AudioManager.timeout();
+                    const mark = turnMark;
+                    turnMark = null;
+                    lastQuantum = null;
+
+                    if (typeof onExpire === 'function') onExpire(mark);
+                    if (onChange) onChange(snapshot());
+                }, Math.max(0, deadline - performance.now()));
+            }
+
+            function elapsedClock(now) {
+                return clockAccum + (kind === 'clock' && clockBase ? now - clockBase : 0);
+            }
+
+            function snapshot() {
+                const now = performance.now();
+                const msLeft =
+                    kind === 'turn' ? Math.max(0, frozen() ? remainMs : deadline - now) : 0;
+                const secondsLeft = Math.ceil(msLeft / 1000);
+                const level =
+                    kind !== 'turn'
+                        ? 'normal'
+                        : secondsLeft <= CRITICAL_SECONDS
+                            ? 'critical'
+                            : secondsLeft <= WARN_SECONDS
+                                ? 'warn'
+                                : 'normal';
+
+                return {
+                    mode,
+                    kind,
+                    frozen: frozen(),
+                    counting: kind !== 'none' && !frozen(),
+                    msLeft,
+                    secondsLeft,
+                    level,
+                    ringPct:
+                        kind === 'turn'
+                            ? Math.max(0, Math.min(100, (msLeft / durationMs) * 100))
+                            : 100,
+                    clockMs: elapsedClock(now),
+                    turnMark
+                };
+            }
+
+            /**
+             * Render loop. Frames may be throttled in hidden tabs — every
+             * value is recomputed from timestamps, so nothing drifts.
+             * Under prefers-reduced-motion the UI only refreshes when the
+             * displayed second changes (stepped instead of smooth).
+             */
+            function frame() {
+                rafId = 0;
+
+                const snap = snapshot();
+                const quantum =
+                    snap.kind === 'turn' ? snap.secondsLeft : Math.floor(snap.clockMs / 1000);
+                const changed = quantum !== lastQuantum;
+
+                if (changed || forceRender || !reducedMotionQuery.matches) {
+                    lastQuantum = quantum;
+                    forceRender = false;
+
+                    if (snap.kind === 'turn' && changed) {
+                        if (snap.secondsLeft <= CRITICAL_SECONDS && snap.secondsLeft >= 1) {
+                            AudioManager.tick();
+                        }
+                        if (
+                            snap.secondsLeft === WARN_SECONDS &&
+                            durationMs > WARN_SECONDS * 1000 &&
+                            !warned
+                        ) {
+                            warned = true;
+                            if (typeof onWarn === 'function') onWarn();
+                        }
+                    }
+
+                    if (onChange) onChange(snap);
+                }
+
+                if (snap.kind !== 'none' && !snap.frozen) {
+                    rafId = window.requestAnimationFrame(frame);
+                }
+            }
+
+            return {
+                /** Apply settings; hard-stops any flow (callers restart timing). */
+                configure(newMode, newDurationMs, newPenalty) {
+                    mode = newMode === 'turn' || newMode === 'clock' ? newMode : 'off';
+                    durationMs = Math.max(1000, Number(newDurationMs) || 10000);
+                    penalty = TURN_PENALTIES.indexOf(newPenalty) !== -1 ? newPenalty : 'random';
+                    clearAlarm();
+                    stopLoop();
+                    kind = 'none';
+                    turnMark = null;
+                    remainMs = 0;
+                    clockBase = 0;
+                    clockAccum = 0;
+                    clockStarted = false;
+                    lastQuantum = null;
+                    warned = false;
+                },
+
+                penaltyValue() {
+                    return penalty;
+                },
+
+                /** (Re)start the countdown for a player's turn. */
+                startTurn(mark) {
+                    if (mode !== 'turn') return;
+                    clearAlarm();
+                    turnMark = mark;
+                    kind = 'turn';
+                    remainMs = durationMs;
+                    deadline = performance.now() + durationMs;
+                    warned = false;
+                    lastQuantum = null;
+                    forceRender = true;
+                    if (!frozen()) {
+                        armAlarm();
+                        startLoop();
+                    }
+                    if (onChange) onChange(snapshot());
+                },
+
+                /** Stop the countdown (move placed or turn suspended). */
+                endTurn() {
+                    if (kind !== 'turn') return;
+                    clearAlarm();
+                    kind = 'none';
+                    turnMark = null;
+                    remainMs = 0;
+                    lastQuantum = null;
+                    stopLoop();
+                    if (onChange) onChange(snapshot());
+                },
+
+                /** Game clock: starts with the first move of a round. */
+                startClock() {
+                    if (mode !== 'clock' || clockStarted) return;
+                    clockStarted = true;
+                    kind = 'clock';
+                    lastQuantum = null;
+                    forceRender = true;
+                    if (!frozen()) clockBase = performance.now();
+                    startLoop();
+                    if (onChange) onChange(snapshot());
+                },
+
+                /** Game clock: freeze and return the total elapsed ms. */
+                stopClock() {
+                    const elapsed = elapsedClock(performance.now());
+                    if (kind === 'clock') {
+                        clockAccum = elapsed; // bank the total for display
+                        clockBase = 0;
+                        kind = 'none';
+                        stopLoop();
+                    }
+                    if (onChange) onChange(snapshot());
+                    return elapsed;
+                },
+
+                clockWasStarted() {
+                    return clockStarted;
+                },
+
+                elapsedMs() {
+                    return elapsedClock(performance.now());
+                },
+
+                /** Deliberate pause (button / P / auto-pause) or dialog hold. */
+                hold(id) {
+                    holds.add(id);
+                    freeze();
+                    if (onChange) onChange(snapshot());
+                },
+
+                /** Release a hold; only un-freezes when no holds remain. */
+                release(id) {
+                    holds.delete(id);
+                    if (!frozen()) thaw();
+                    if (onChange) onChange(snapshot());
+                },
+
+                /** Full stop for a fresh round. */
+                reset() {
+                    clearAlarm();
+                    stopLoop();
+                    kind = 'none';
+                    turnMark = null;
+                    remainMs = 0;
+                    clockBase = 0;
+                    clockAccum = 0;
+                    clockStarted = false;
+                    lastQuantum = null;
+                    warned = false;
+                    // `holds` belongs to the dialog/user-pause flows.
+                },
+
+                snapshot,
+
+                /** UI callbacks: onChange(snapshot), onWarn(), onExpire(mark). */
+                setHandlers(handlers) {
+                    if (!handlers) return;
+                    if (typeof handlers.onChange === 'function') onChange = handlers.onChange;
+                    if (typeof handlers.onWarn === 'function') onWarn = handlers.onWarn;
+                    if (typeof handlers.onExpire === 'function') onExpire = handlers.onExpire;
+                },
+
+                /** Diagnostic snapshot of the raw internals (tests/debugging). */
+                debugState() {
+                    return {
+                        mode,
+                        durationMs,
+                        penalty,
+                        kind,
+                        turnMark,
+                        remainMs,
+                        clockAccum,
+                        clockBase,
+                        clockStarted,
+                        frozen: frozen(),
+                        holds: Array.from(holds),
+                        alarmArmed: Boolean(alarmId),
+                        rafActive: Boolean(rafId),
+                        deadlineIn:
+                            kind === 'turn' && !frozen()
+                                ? Math.round(deadline - performance.now())
+                                : null
                     };
                 }
             };
@@ -3341,9 +4106,24 @@
         const resultTitle = byId('resultTitle');
         const resultSub = byId('resultSub');
         const resultScore = byId('resultScore');
+        const resultTime = byId('resultTime');
         const resultAgain = byId('resultAgain');
         const resultView = byId('resultView');
         const confettiCanvas = byId('confettiCanvas');
+
+        // Timer UI
+        const timerChip = byId('timerChip');
+        const timerText = byId('timerText');
+        const timerRing = byId('timerRing');
+        const pauseBtn = byId('pauseBtn');
+        const pauseBtnText = byId('pauseBtnText');
+        const pauseOverlay = byId('pauseOverlay');
+        const resumeBtn = byId('resumeBtn');
+        const timerToast = byId('timerToast');
+        const timerToastText = byId('timerToastText');
+        const controlsEl = byId('controls');
+        const timerTurnOptions = byId('timerTurnOptions');
+        const timerClockHint = byId('timerClockHint');
 
         /* ==========================================================
        7. Build the nine cells once, then reuse them.
@@ -3387,6 +4167,15 @@
         let isBotThinking = false;
         let lastStatusText = '';
         let shownLineKey = '';
+
+        // Timer state (driven by TimerManager, rendered by renderTimer)
+        let isPaused = false;          // deliberate pause: button / P / auto-pause
+        let turnTimerAnnounced = false;
+        let lastRound = null;          // { ms, forfeited, bestText } for the result modal
+        let timerToastTimer = 0;
+        let resultRevealTimer = 0;
+        let botTimerDelay = 0;         // pending bot think-time, ms
+        let botTimerStamp = 0;         // when the pending timeout was armed
 
         /* ==========================================================
        9. Small UI helpers
@@ -3646,7 +4435,8 @@
             const isBotMode = prefs.mode === 'bot';
             const thinking = isBotThinking && !state.over;
             const botTurn = isBotMode && !state.over && state.turn === botMark();
-            const lock = thinking || botTurn;
+            const paused = isPaused && !state.over;
+            const lock = thinking || botTurn || paused;
 
             boardEl.classList.toggle('is-locked', lock);
             boardEl.setAttribute('aria-busy', thinking ? 'true' : 'false');
@@ -3688,6 +4478,9 @@
                 } else {
                     text = "It's a draw!";
                 }
+            } else if (paused) {
+                text = 'Paused';
+                dot = state.turn;
             } else if (thinking) {
                 text = 'Bot is thinking';
                 dot = botMark();
@@ -3721,6 +4514,7 @@
 
             const canUndo =
                 !state.over &&
+                !paused &&
                 !thinking &&
                 !botTurn &&
                 state.moves >= (isBotMode ? 2 : 1) &&
@@ -3728,6 +4522,112 @@
             undoBtn.disabled = !canUndo;
 
             syncWinningLine(state);
+            renderTimer();
+        }
+
+        /* ==========================================================
+       12b. Timer UI + helpers
+       ========================================================== */
+        /** Round clock as mm:ss (capped at 99:59). */
+        function fmtClock(ms) {
+            const totalSeconds = Math.min(99 * 60 + 59, Math.max(0, Math.floor(ms / 1000)));
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        /** Best (fastest) win times: per player in duo, per side+difficulty vs Bot. */
+        function bestTimeKey(winner) {
+            if (prefs.mode === 'bot') {
+                return {
+                    bot: true,
+                    difficulty: prefs.difficulty,
+                    side: winner === prefs.humanMark ? 'you' : 'bot'
+                };
+            }
+            return { bot: false, mark: winner };
+        }
+
+        function getBestTime(key) {
+            return key.bot
+                ? prefs.bestTimes.bot[key.difficulty][key.side]
+                : prefs.bestTimes.duo[key.mark];
+        }
+
+        function setBestTime(key, ms) {
+            if (key.bot) prefs.bestTimes.bot[key.difficulty][key.side] = ms;
+            else prefs.bestTimes.duo[key.mark] = ms;
+        }
+
+        /** Renders the timer chip, scoreboard dim states and the pause button. */
+        function renderTimer() {
+            const snap = TimerManager.snapshot();
+            const state = game.getState();
+            const show = prefs.timerMode !== 'off';
+
+            timerChip.hidden = !show;
+            pauseBtn.hidden = !show;
+            controlsEl.classList.toggle('has-pause', show);
+
+            if (!show) {
+                scoreXEl.classList.remove('is-timing', 'is-dim');
+                scoreOEl.classList.remove('is-timing', 'is-dim');
+                return;
+            }
+
+            pauseBtn.disabled = state.over;
+            pauseBtn.dataset.state = isPaused ? 'paused' : 'running';
+            pauseBtnText.textContent = isPaused ? 'Resume' : 'Pause';
+
+            const isTurnMode = prefs.timerMode === 'turn';
+            timerChip.dataset.mode = prefs.timerMode;
+
+            let text;
+            let level = 'normal';
+            let idle = false;
+
+            if (isTurnMode) {
+                if (state.over) {
+                    text = '—';
+                    idle = true;
+                } else if (snap.kind === 'turn') {
+                    text = String(snap.secondsLeft);
+                    level = snap.level;
+                } else {
+                    // Bot's turn: countdown suspended, "Bot is thinking..." shows instead.
+                    text = String(prefs.turnDuration);
+                    idle = true;
+                }
+            } else {
+                text = fmtClock(snap.clockMs);
+            }
+
+            timerText.textContent = text;
+            timerChip.dataset.level = level;
+            timerChip.classList.toggle('is-idle', idle);
+            timerChip.classList.toggle('is-paused', snap.frozen);
+            timerRing.style.strokeDashoffset = (100 - snap.ringPct).toFixed(2);
+
+            // Highlight the timed player's card, dim the other one.
+            const dimScores = isTurnMode && snap.kind === 'turn' && !state.over;
+            scoreXEl.classList.toggle('is-timing', dimScores && snap.turnMark === 'X');
+            scoreOEl.classList.toggle('is-timing', dimScores && snap.turnMark === 'O');
+            scoreXEl.classList.toggle('is-dim', dimScores && snap.turnMark !== 'X');
+            scoreOEl.classList.toggle('is-dim', dimScores && snap.turnMark !== 'O');
+        }
+
+        /** Short visual "Time's up!" banner; details go to the live region. */
+        function showTimerToast(message) {
+            timerToastText.textContent = message;
+            timerToast.hidden = false;
+            restartAnimation(timerToast, 'is-visible');
+
+            window.clearTimeout(timerToastTimer);
+            timerToastTimer = window.setTimeout(() => {
+                timerToastTimer = 0;
+                timerToast.hidden = true;
+                timerToast.classList.remove('is-visible');
+            }, 2200);
         }
 
         /* ==========================================================
@@ -3750,10 +4650,62 @@
         function cancelBotTimer() {
             botToken += 1;
             isBotThinking = false;
+            botTimerDelay = 0;
             if (botTimer) {
                 window.clearTimeout(botTimer);
                 botTimer = 0;
             }
+        }
+
+        /** Arms the bot's think timeout; the callback re-validates everything. */
+        function armBotTimer(delay, token, scheduledRound) {
+            botTimerDelay = delay;
+            botTimerStamp = performance.now();
+            botTimer = window.setTimeout(() => {
+                botTimer = 0;
+                botTimerDelay = 0;
+
+                // A reset, mode change, difficulty change or undo bumps the token,
+                // so a stale timeout can never place a mark on a new board.
+                if (token !== botToken || scheduledRound !== roundId) return;
+                if (isPaused || settingsDialog.open) return; // frozen; stays pending
+
+                const current = game.getState();
+                if (current.over || prefs.mode !== 'bot' || current.turn !== botMark()) return;
+
+                isBotThinking = false;
+                const move = getBotMove(current.board, botMark(), prefs.difficulty);
+                if (move < 0) {
+                    render();
+                    return;
+                }
+                handleMove(move, 'bot');
+            }, delay);
+        }
+
+        /**
+         * Freezes the pending bot move so paused/dialog time does not
+         * count as think-time. `unfreezeBotTimer()` re-arms the remainder.
+         */
+        function freezeBotTimer() {
+            if (!botTimer) return;
+            window.clearTimeout(botTimer);
+            botTimer = 0;
+            botTimerDelay = Math.max(0, botTimerDelay - (performance.now() - botTimerStamp));
+        }
+
+        function unfreezeBotTimer() {
+            if (botTimer || botTimerDelay <= 0) return;
+
+            const state = game.getState();
+            if (state.over || prefs.mode !== 'bot' || state.turn !== botMark()) {
+                botTimerDelay = 0;
+                return;
+            }
+
+            // The callback re-checks the token and round id before moving,
+            // so the bot can never land a stale move after pause/resume.
+            armBotTimer(botTimerDelay, botToken, roundId);
         }
 
         /** Puts the bot on the clock for this turn, unless the round moved on. */
@@ -3777,24 +4729,7 @@
             const token = ++botToken;
             const delay = THINK_MIN_MS + Math.random() * (THINK_MAX_MS - THINK_MIN_MS);
 
-            botTimer = window.setTimeout(() => {
-                botTimer = 0;
-
-                // A reset, mode change, difficulty change or undo bumps the token,
-                // so a stale timeout can never place a mark on a new board.
-                if (token !== botToken || scheduledRound !== roundId) return;
-
-                const current = game.getState();
-                if (current.over || prefs.mode !== 'bot' || current.turn !== botMark()) return;
-
-                isBotThinking = false;
-                const move = getBotMove(current.board, botMark(), prefs.difficulty);
-                if (move < 0) {
-                    render();
-                    return;
-                }
-                handleMove(move, 'bot');
-            }, delay);
+            armBotTimer(delay, token, scheduledRound);
         }
 
         /** The mark that opens a round, honouring Me / Bot / Alternate. */
@@ -3816,14 +4751,21 @@
             cancelBotTimer();
             window.clearTimeout(resultTimer);
             resultTimer = 0;
-
+            clearPause(); // a fresh round always starts unpaused
             if (resultDialog.open) resultDialog.close();
 
             const previous = game.getState().starter;
             game.reset(nextStarter(previous, advance));
             lastStatusText = '';
+            lastRound = null;
+            turnTimerAnnounced = false;
+            TimerManager.reset();
+
             render();
             focusCell(0, true);
+
+            // Turn timer: count down for the opening turn right away.
+            if (prefs.timerMode === 'turn') beginTurnTimer();
 
             if (prefs.mode === 'bot' && game.getState().turn === botMark()) {
                 scheduleBotMove();
@@ -3831,6 +4773,8 @@
         }
 
         function handleMove(index, source = 'human') {
+            if (isPaused) return; // paused: board input is blocked
+
             if (source === 'human' && prefs.mode === 'bot') {
                 const current = game.getState();
                 if (isBotThinking || current.over || current.turn !== prefs.humanMark) return;
@@ -3838,6 +4782,11 @@
 
             const result = game.place(index);
             if (!result) return;
+
+            // A legal move ends the countdown; its expiry alarm is cleared
+            // synchronously, so a timeout can never double-apply on top of
+            // a move made at the same moment.
+            TimerManager.endTurn();
 
             render();
 
@@ -3865,27 +4814,28 @@
             }
 
             if (result.over) {
-                recordResult(result.winner);
-                storage.write(prefs);
-                renderScores(result.winner || 'draws');
-
-                if (result.winner) AudioManager.win();
-                else AudioManager.draw();
-
-                scheduleResult();
+                finishRound(result.winner);
                 return;
             }
 
             AudioManager.pluck(result.mark);
 
-            if (source === 'human' && prefs.mode === 'bot') {
+            // Game clock: starts ticking with the first move of the round.
+            if (prefs.timerMode === 'clock' && game.getState().moves === 1) {
+                TimerManager.startClock();
+            }
+
+            // Hand over to the next player's countdown (no-op during the bot's turn).
+            if (prefs.timerMode === 'turn') beginTurnTimer();
+
+            if ((source === 'human' || source === 'timeout') && prefs.mode === 'bot') {
                 scheduleBotMove();
             }
         }
 
         function handleUndo() {
             const state = game.getState();
-            if (state.over || isBotThinking) return;
+            if (state.over || isBotThinking || isPaused) return;
 
             const isBotMode = prefs.mode === 'bot';
             if (isBotMode && (state.turn !== prefs.humanMark || state.moves < 2)) return;
@@ -3898,10 +4848,139 @@
             lastStatusText = '';
             render();
 
+            // Restart the countdown for the player regaining control.
+            if (prefs.timerMode === 'turn') beginTurnTimer();
+
             // Newest-first: for bot mode the second entry is the human's move,
             // which is the cell control returns to.
             const focusTarget = undone[undone.length - 1];
             focusCell(focusTarget.index, true);
+        }
+
+        /* --- Timer round flow ---------------------------------------- */
+
+        /** Starts (or restarts) the countdown for whoever is on turn now. */
+        function beginTurnTimer() {
+            if (prefs.timerMode !== 'turn') return;
+            const state = game.getState();
+            if (state.over) return;
+
+            // In bot mode the countdown belongs to the human only; during
+            // the bot's turn it stays suspended ("Bot is thinking..." shows).
+            if (prefs.mode === 'bot' && state.turn !== prefs.humanMark) return;
+
+            const announceStart = !turnTimerAnnounced;
+            turnTimerAnnounced = true;
+            TimerManager.startTurn(state.turn);
+            if (announceStart) announce(`${prefs.turnDuration} seconds per turn.`);
+        }
+
+        /** Shared end-of-round flow: stop timers, record, celebrate. */
+        function finishRound(winner, { forfeited = false } = {}) {
+            TimerManager.endTurn();
+            const clockMs = TimerManager.stopClock();
+            const clockUsed = prefs.timerMode === 'clock' && TimerManager.clockWasStarted();
+
+            let bestText = '';
+            if (clockUsed && winner && !forfeited) {
+                const key = bestTimeKey(winner);
+                const best = getBestTime(key);
+                if (!best || clockMs < best) {
+                    setBestTime(key, Math.max(1, Math.round(clockMs)));
+                    bestText = `New best · ${fmtClock(clockMs)}`;
+                } else {
+                    bestText = `Best · ${fmtClock(best)}`;
+                }
+            }
+
+            lastRound = { ms: clockUsed ? clockMs : null, forfeited, bestText };
+
+            render(); // covers forfeit endings, which skip handleMove's render
+            recordResult(winner);
+            storage.write(prefs);
+            renderScores(winner || 'draws');
+
+            if (winner) AudioManager.win();
+            else AudioManager.draw();
+
+            scheduleResult();
+        }
+
+        /** Applies the configured penalty when a turn countdown expires. */
+        function applyTimeoutPenalty(mark) {
+            const state = game.getState();
+            if (state.over || state.turn !== mark) return; // stale alarm
+            if (prefs.mode === 'bot' && mark !== prefs.humanMark) return; // bot is never timed
+            if (prefs.timerMode !== 'turn') return;
+
+            restartAnimation(timerChip, 'is-shake');
+            showTimerToast("Time's up!");
+
+            if (prefs.turnPenalty === 'forfeit') {
+                const winner = otherMark(mark);
+                game.forfeit(winner);
+                announce(`Time's up. ${playerName(winner)} wins by forfeit.`);
+                finishRound(winner, { forfeited: true });
+                return;
+            }
+
+            if (prefs.turnPenalty === 'skip') {
+                const skipped = game.pass();
+                if (!skipped) return;
+                announce(`Time's up. Turn passes to ${playerName(otherMark(mark))}.`);
+                lastStatusText = '';
+                render();
+                beginTurnTimer();
+                if (prefs.mode === 'bot') scheduleBotMove();
+                return;
+            }
+
+            // Default penalty: a random empty cell is played for the player.
+            const free = emptyIndices(state.board);
+            if (!free.length) return;
+            const index = randomOf(free);
+            const row = Math.floor(index / 3) + 1;
+            const column = (index % 3) + 1;
+            announce(`Time's up. Random move played in row ${row}, column ${column}.`);
+            handleMove(index, 'timeout');
+        }
+
+        /* --- Pause / resume ------------------------------------------ */
+
+        /** Hides the overlay without resuming timers (used by startRound). */
+        function clearPause() {
+            if (!isPaused) return;
+            isPaused = false;
+            pauseOverlay.hidden = true;
+            boardEl.classList.remove('is-paused');
+            TimerManager.release(PAUSE_HOLD);
+            unfreezeBotTimer();
+        }
+
+        function pauseGame() {
+            if (isPaused || prefs.timerMode === 'off') return;
+            if (game.getState().over || resultDialog.open || settingsDialog.open) return;
+
+            isPaused = true;
+            TimerManager.hold(PAUSE_HOLD); // freeze countdown / clock
+            freezeBotTimer();              // freeze the bot's pending move too
+            pauseOverlay.hidden = false;
+            boardEl.classList.add('is-paused');
+            renderTimer();
+            resumeBtn.focus();
+            announce('Game paused.');
+        }
+
+        function resumeGame() {
+            if (!isPaused) return;
+            isPaused = false;
+            pauseOverlay.hidden = true;
+            boardEl.classList.remove('is-paused');
+            TimerManager.release(PAUSE_HOLD);
+            unfreezeBotTimer();
+            renderTimer();
+            pauseBtn.focus();
+            announce('Game resumed.');
         }
 
         function newRound() {
@@ -3943,6 +5022,7 @@
 
             const isBotMode = prefs.mode === 'bot';
             const scores = currentScores();
+            const info = lastRound || { ms: null, forfeited: false, bestText: '' };
 
             if (state.winner) {
                 resultBadge.className = `result__badge is-${state.winner.toLowerCase()}`;
@@ -3951,10 +5031,18 @@
                 if (isBotMode) {
                     const humanWon = state.winner === prefs.humanMark;
                     resultTitle.textContent = humanWon ? 'You win!' : 'Bot wins!';
-                    resultSub.textContent = humanWon ? 'You completed a line.' : 'Bot completed a line.';
+                    resultSub.textContent = info.forfeited
+                        ? humanWon
+                            ? 'Bot ran out of time.'
+                            : 'You ran out of time.'
+                        : humanWon
+                            ? 'You completed a line.'
+                            : 'Bot completed a line.';
                 } else {
                     resultTitle.textContent = `${prefs.names[state.winner]} wins!`;
-                    resultSub.textContent = `${state.winner} completed a line.`;
+                    resultSub.textContent = info.forfeited
+                        ? `${prefs.names[otherMark(state.winner)]} ran out of time.`
+                        : `${state.winner} completed a line.`;
                 }
             } else {
                 resultBadge.className = 'result__badge is-draw';
@@ -3966,6 +5054,25 @@
             resultScore.textContent = isBotMode
                 ? `${prefs.botName} ${scores.you} · Draws ${scores.draws} · Bot ${scores.bot}`
                 : `X ${scores.X} · Draws ${scores.draws} · O ${scores.O}`;
+
+            // Round duration + best time (game clock mode only).
+            if (info.ms != null) {
+                const who = state.winner
+                    ? isBotMode
+                        ? state.winner === prefs.humanMark
+                            ? prefs.botName
+                            : BOT_NAME
+                        : prefs.names[state.winner]
+                    : null;
+                resultTime.textContent =
+                    (who
+                        ? `${who} wins in ${fmtClock(info.ms)}`
+                        : `Round time ${fmtClock(info.ms)}`) +
+                    (info.bestText ? ` · ${info.bestText}` : '');
+                resultTime.hidden = false;
+            } else {
+                resultTime.hidden = true;
+            }
 
             if (resultDialog.open) return;
 
@@ -4116,10 +5223,20 @@
             botOptions.hidden = !isBot;
             duoNameFields.hidden = isBot;
             botNameField.hidden = !isBot;
+
+            const timerMode = checkedSetupValue('timerMode', prefs.timerMode);
+            timerTurnOptions.hidden = timerMode !== 'turn';
+            timerClockHint.hidden = timerMode !== 'clock';
+
             updateDifficultyHint();
         }
 
         function openSettings() {
+            // Time must never run behind the dialog: freeze countdown,
+            // game clock and the bot's pending move.
+            TimerManager.hold(DIALOG_HOLD);
+            freezeBotTimer();
+
             modeDuoInput.checked = prefs.mode === 'duo';
             modeBotInput.checked = prefs.mode === 'bot';
             DIFFICULTIES.forEach((difficulty) => {
@@ -4131,6 +5248,19 @@
             FIRST_MOVES.forEach((first) => {
                 firstInputs[first].checked = first === prefs.first;
             });
+
+            const timerModeInput = settingsForm.querySelector(
+                `input[name="timerMode"][value="${prefs.timerMode}"]`
+            );
+            const durationInput = settingsForm.querySelector(
+                `input[name="turnDuration"][value="${prefs.turnDuration}"]`
+            );
+            const penaltyInput = settingsForm.querySelector(
+                `input[name="turnPenalty"][value="${prefs.turnPenalty}"]`
+            );
+            if (timerModeInput) timerModeInput.checked = true;
+            if (durationInput) durationInput.checked = true;
+            if (penaltyInput) penaltyInput.checked = true;
 
             nameXInput.value = prefs.names.X;
             nameOInput.value = prefs.names.O;
@@ -4144,6 +5274,7 @@
         settingsForm.addEventListener('change', (event) => {
             if (event.target.name === 'mode') syncSetupVisibility();
             if (event.target.name === 'difficulty') updateDifficultyHint();
+            if (event.target.name === 'timerMode') syncSetupVisibility();
         });
 
         settingsForm.addEventListener('submit', (event) => {
@@ -4153,6 +5284,9 @@
             const newDifficulty = checkedSetupValue('difficulty', prefs.difficulty);
             const newMark = checkedSetupValue('mark', prefs.humanMark);
             const newFirst = checkedSetupValue('first', prefs.first);
+            const newTimerMode = checkedSetupValue('timerMode', prefs.timerMode);
+            const newDuration = Number(checkedSetupValue('turnDuration', String(prefs.turnDuration)));
+            const newPenalty = checkedSetupValue('turnPenalty', prefs.turnPenalty);
             const state = game.getState();
 
             const modeChanged = newMode !== prefs.mode;
@@ -4171,6 +5305,11 @@
                     newMark !== prefs.humanMark ||
                     newFirst !== prefs.first);
 
+            const timerChanged =
+                newTimerMode !== prefs.timerMode ||
+                newDuration !== prefs.turnDuration ||
+                newPenalty !== prefs.turnPenalty;
+
             if (newMode === 'bot') {
                 prefs.botName = cleanName(botNameInput.value, DEFAULT_BOT_NAME);
             } else {
@@ -4182,17 +5321,37 @@
             prefs.difficulty = newDifficulty;
             prefs.humanMark = newMark;
             prefs.first = newFirst;
+            if (TIMER_MODES.indexOf(newTimerMode) !== -1) prefs.timerMode = newTimerMode;
+            if (TURN_DURATIONS.indexOf(newDuration) !== -1) prefs.turnDuration = newDuration;
+            if (TURN_PENALTIES.indexOf(newPenalty) !== -1) prefs.turnPenalty = newPenalty;
 
             storage.write(prefs);
+
+            // The timer restarts cleanly with the new settings.
+            if (timerChanged) {
+                TimerManager.configure(prefs.timerMode, prefs.turnDuration * 1000, prefs.turnPenalty);
+            }
+
             renderScores();
             renderModeChrome();
             settingsDialog.close();
+            releaseAfterSettings();
 
             if (modeChanged || botConfigChanged) {
                 startRound({ advance: false });
             } else {
                 lastStatusText = '';
                 render();
+
+                if (timerChanged && !game.getState().over) {
+                    if (prefs.timerMode === 'turn') {
+                        turnTimerAnnounced = false; // re-announce the new pace
+                        beginTurnTimer();
+                    } else if (prefs.timerMode === 'clock' && game.getState().moves > 0) {
+                        // Mid-round switch: time the rest of the round.
+                        TimerManager.startClock();
+                    }
+                }
             }
         });
 
@@ -4266,6 +5425,13 @@
         namesBtn.addEventListener('click', openSettings);
         modeBtn.addEventListener('click', openSettings);
 
+        pauseBtn.addEventListener('click', () => {
+            if (isPaused) resumeGame();
+            else pauseGame();
+        });
+
+        resumeBtn.addEventListener('click', resumeGame);
+
         musicToggle.addEventListener('click', toggleMusic);
 
         soundToggle.addEventListener('click', () => {
@@ -4291,19 +5457,23 @@
             restartAnimation(themeToggle, 'is-spin');
         });
 
-        settingsClose.addEventListener('click', () => settingsDialog.close());
-        settingsCancel.addEventListener('click', () => settingsDialog.close());
+        /**
+         * Central dialog-close handling. `.close()` does not fire a
+         * `close` event in every engine, so the dialog hold is always
+         * released synchronously; the `close` event listener below is
+         * only a safety net and this function is idempotent.
+         */
+        function releaseAfterSettings() {
+            TimerManager.release(DIALOG_HOLD);
+            unfreezeBotTimer();
 
-        settingsDialog.addEventListener('click', (event) => {
-            if (event.target === settingsDialog) settingsDialog.close();
-        });
-
-        settingsDialog.addEventListener('close', () => {
             if (settingsDialog.open || resultDialog.open) return;
 
             // A result can finish while the setup dialog is open; reveal it now.
             if (game.getState().over) {
-                window.setTimeout(() => {
+                window.clearTimeout(resultRevealTimer);
+                resultRevealTimer = window.setTimeout(() => {
+                    resultRevealTimer = 0;
                     if (!settingsDialog.open && !resultDialog.open && game.getState().over) {
                         showResult();
                     }
@@ -4311,11 +5481,30 @@
                 return;
             }
 
-            // If the bot's turn was waiting when the dialog opened, resume it.
-            if (prefs.mode === 'bot' && !isBotThinking && game.getState().turn === botMark()) {
-                scheduleBotMove();
-            }
+            // If the window lost focus while the dialog was up, pause
+            // deliberately instead of counting in the background.
+            if (!document.hasFocus()) pauseGame();
+        }
+
+        function closeSettingsDialog() {
+            if (settingsDialog.open) settingsDialog.close();
+            releaseAfterSettings();
+        }
+
+        settingsClose.addEventListener('click', closeSettingsDialog);
+        settingsCancel.addEventListener('click', closeSettingsDialog);
+
+        settingsDialog.addEventListener('click', (event) => {
+            if (event.target === settingsDialog) closeSettingsDialog();
         });
+
+        // Escape: the dialog closes itself; release once it has.
+        settingsDialog.addEventListener('cancel', () => {
+            window.setTimeout(releaseAfterSettings, 0);
+        });
+
+        // Safety net for engines that do deliver `close`.
+        settingsDialog.addEventListener('close', releaseAfterSettings);
 
         resultAgain.addEventListener('click', () => {
             if (resultDialog.open) resultDialog.close();
@@ -4365,15 +5554,30 @@
                 return;
             }
 
+            // P toggles pause (no effect when the timer is off / round over).
+            if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'p' || event.key === 'P')) {
+                event.preventDefault();
+                if (isPaused) resumeGame();
+                else pauseGame();
+                return;
+            }
+
             if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'r' || event.key === 'R')) {
                 event.preventDefault();
                 newRound();
             }
         });
 
-        // Fade the music out while the tab is hidden and bring it back on return.
+        // Fade the music out while the tab is hidden, and auto-pause the
+        // game. Neither ever auto-resumes: the player resumes deliberately.
         document.addEventListener('visibilitychange', () => {
             AudioManager.setHidden(document.hidden);
+            if (document.hidden) pauseGame();
+        });
+
+        // Losing window focus (alt-tab, another app) pauses too.
+        window.addEventListener('blur', () => {
+            if (!settingsDialog.open) pauseGame();
         });
 
         if (typeof themeMedia.addEventListener === 'function') {
@@ -4402,11 +5606,23 @@
         renderScores();
         renderModeChrome();
 
+        // Timer: apply saved settings and subscribe to its key moments.
+        TimerManager.configure(prefs.timerMode, prefs.turnDuration * 1000, prefs.turnPenalty);
+        TimerManager.setHandlers({
+            onChange: () => renderTimer(),
+            onWarn: () => announce('5 seconds left.'),
+            onExpire: applyTimeoutPenalty
+        });
+        window.__timer = TimerManager; // TEMP: test hook, remove before delivery
+
         // Open with the starter implied by the saved mode and preferences.
         game.reset(nextStarter(undefined, false));
         lastStatusText = '';
         render();
         focusCell(0, false);
+
+        if (prefs.timerMode === 'turn') beginTurnTimer();
+        renderTimer();
 
         if (prefs.mode === 'bot' && game.getState().turn === botMark()) {
             scheduleBotMove();
